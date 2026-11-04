@@ -52,6 +52,7 @@ class BitTeamP2PAPI:
     def _general_token(self):
         if not isinstance(self.auth, SessionAuth) or self.auth.state not in (AuthState.READY, AuthState.GENERAL_SESSION_READY):
             raise AuthenticationError(401)
+        self.auth._assert_owner()
         transport = self.auth._transport
         if (transport is None or getattr(transport, "_closed", False)
                 or getattr(transport, "base_url", "").rstrip("/") != "https://bit.team/trade/api"
@@ -124,6 +125,7 @@ class BitTeamP2PAPI:
                 if self.auth is not auth:
                     raise asyncio.CancelledError("Authentication operation was invalidated")
                 auth._assert_lifecycle(lifecycle)
+                auth._assert_owner()
                 if auth._transport is None or getattr(auth._transport, "_closed", False):
                     raise AuthenticationError(401)
 

@@ -119,6 +119,18 @@ class SessionAuth:
         if expected != self._lifecycle:
             raise asyncio.CancelledError("Authentication operation was invalidated")
 
+    def _assert_owner(self):
+        """Reject held resources whose REST owner now belongs to another auth.
+
+        Older duck-typed transports may omit auth; real REST owners always
+        require the exact bound auth, even if their auth attribute was removed.
+        """
+        from .rest import BitTeamRestAPI
+        transport = self._transport
+        fallback = None if isinstance(transport, BitTeamRestAPI) else self
+        if getattr(transport, "auth", fallback) is not self:
+            raise asyncio.CancelledError("Authentication owner was replaced")
+
     async def _tracked_send(self, *args, **kwargs):
         return await self._tracked_operation(self._transport._send(*args, **kwargs))
 

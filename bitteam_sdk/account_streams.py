@@ -54,12 +54,16 @@ class BitTeamAccountStreams(BitTeamMarketStreams):
         self._reconnect_lock = asyncio.Lock()
 
     def _require_session(self, lifecycle=None):
+        self.auth._assert_owner()
         if getattr(self.auth._transport, "_closed", False):
             raise RuntimeError("The owning BitTeam client is closed")
         if self.auth.state != AuthState.READY:
             raise AuthenticationError(401)
         if lifecycle is not None:
             self.auth._assert_lifecycle(lifecycle)
+
+    def _validate_rpc(self):
+        self._require_session(self._connection_lifecycle)
 
     async def _hello_payload(self):
         self._require_session()

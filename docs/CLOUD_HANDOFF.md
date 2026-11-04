@@ -60,3 +60,12 @@ clear/spot refresh/replay. Prior CI for0de21ed is historical and does not
 validate later review corrections. See TEST_GAPS for final checks.
 
 После удаления недоказанного blacklist: полный pytest856passed,1nativeDPAPI skip, check_test_skips passed. Текущий auth review41cases, новые samecookie-read регрессии red8failed33passed до удаления. Независимый reviewer158related passed. SHA/run/status финальной CI-проверки указываются в draft PR#1 после фактической проверки API; старые runs выше относятся к прежним commits.
+
+
+Held-resource owner review: resource.authA can remain unchanged while real
+client.rest.auth becomesB. Added strict owner identity checks in P2P/archive/
+account streams, including held references, queued RPC/HTTP and iterator
+resume. Legacy duck transports without auth remain compatible, real REST owner
+requires exact identity. Full cloud904passed1DPAPI skip, skip audit passed;
+48new regression cases. See TEST_GAPS for red/green and exact boundaries. Same
+PR#1 only; final CI result is observed per exact SHA in its description.

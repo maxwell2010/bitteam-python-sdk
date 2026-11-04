@@ -144,7 +144,11 @@ class BitTeamWebSocket:
             if self._reader_task is task:
                 self._reader_task = None
 
+    def _validate_rpc(self):
+        """Hook for private streams to check the owner at dispatch boundaries."""
+
     async def _rpc(self, payload):
+        self._validate_rpc()
         if self.ws is None or self.ws.closed:
             raise ConnectionError("History WebSocket is disconnected")
         self._sequence += 1
@@ -152,8 +156,12 @@ class BitTeamWebSocket:
         future = asyncio.get_running_loop().create_future()
         self._pending[identity] = future
         async def exchange():
+            self._validate_rpc()
             await self.ws.send_json(dict(payload, id=identity))
-            return await future
+            self._validate_rpc()
+            result = await future
+            self._validate_rpc()
+            return result
 
         try:
             # Backpressure while sending belongs to the same RPC deadline.

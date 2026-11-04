@@ -295,3 +295,39 @@ Final correction CI evidence (exact SHA/run/status) is recorded in the
 [existing draft PR#1](https://github.com/maxwell2010/bitteam-python-sdk/pull/1)
 after observing GitHub API, separately from the historical code-commit runs
 above. CI success proves these tests executed, not server semantics.
+
+
+## Held-resource owner identity review
+
+A further independent reviewer reported a distinct boundary: lazy P2P,
+account-stream and archive resources retain authA while their actual owner
+client.rest.auth is replaced by authB; authA lifecycle need not change. Resource
+identity/lifecycle checks alone did not detect this.
+
+The cloud agents independently reproduced this with actual BitTeamClient and
+BitTeamRestAPI owners and fake HTTP/WebSocket transports. Resources remained
+bound to unchanged authA, the real owner held bound authB, and P2P used a shared
+owner cookie jar containing B. No HTTP, account, cache or financial operations
+were used. Initial red runs: P2P10failed/2passed, archive8failed/2passed,
+account streams12failed/1passed.
+
+| Guard/check | Final behavior | Synthetic coverage |
+|---|---|---|
+| Real REST owner identity | Requires transport.auth is resource.auth, even when lifecycle numbers match or owner.auth is missing | Shared SessionAuth owner helper5cases |
+| Held P2P reference | Fails before await/dispatch and after JSON, including queued/scheduled mutations, unchanged resource.auth A and B.clear |18cases; anonymous public calls and sameA refresh remain allowed |
+| Held private archive reference | Fails before session acquisition/dispatch and after valid or malformed JSON, before/after B.clear |12cases; public get_trades and sameA refresh remain allowed |
+| Held account stream / iterator | Owner check before hello/sub/request/reauth, inside RPC dispatch/reply boundaries and before/after iterator waits |13cases, including buffered and waiting consumers; no old event is returned after owner switch |
+| Duck-typed compatibility | Legacy transports lacking auth attribute stay usable; explicit mismatch fails; actual BitTeamRestAPI has no missing-attribute fallback | Covered without weakening real-owner checks |
+
+No lazy-property recreation is relied on: previously issued resource references
+perform their own owner checks. The anonymous RPC validation hook is a no-op;
+public market/history resources do not acquire account restrictions. A waiting
+consumer is checked when it starts/resumes; direct rest.auth assignment is not
+claimed to synchronously wake all waiting tasks. Reconnect still has no replay
+or atomic L2 guarantee.
+
+Final full cloud suite:904passed,1nativeDPAPI skip (905collected), skip audit
+passed on LinuxPython3.12.14.48new owner regressions; independent agents
+cross-reviewed and reran the other areas. These counts and fake transports do
+not prove all errors removed or any live financial result. Exact final
+SHA/run/observed CI status is recorded on the same draft PR#1 after API checks.

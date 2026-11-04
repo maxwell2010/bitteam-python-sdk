@@ -27,7 +27,10 @@ blockchain finality, automatic confirmation or create-and-wait workflow.
 
 Payload fields are excluded from snapshot repr and copied from the API result.
 Copies are detached from transport payloads, not recursively immutable.
-Reads fail across account lifecycle changes; refresh within the same session
+Held private resources also require their actual REST owner to retain the
+same auth object; replacing client.rest.auth invalidates old references, even
+when resource.auth and its lifecycle did not change. Public anonymous reads
+remain allowed. Reads fail across account lifecycle changes; refresh within the same session
 is allowed. Server and parsing errors propagate rather than becoming empty data.
 
 ## Provenance and limits

@@ -54,6 +54,7 @@ class BitTeamArchive:
             transport = self.auth._transport
             if transport is None:
                 raise AuthenticationError(401)
+            auth._assert_owner()
             if transport._closed:
                 raise RuntimeError("The owning BitTeam client is closed")
             if (transport.base_url.rstrip("/") != "https://bit.team/trade/api" or
@@ -69,6 +70,9 @@ class BitTeamArchive:
                 if self.auth is not auth:
                     raise asyncio.CancelledError("Authentication operation was invalidated")
                 auth._assert_lifecycle(lifecycle)
+                auth._assert_owner()
+                if auth._transport is not transport:
+                    raise asyncio.CancelledError("Authentication operation was invalidated")
                 if transport._closed:
                     raise RuntimeError("The owning BitTeam client is closed")
 
@@ -79,6 +83,7 @@ class BitTeamArchive:
                 try:
                     result = await response.json()
                 except (ValueError, aiohttp.ContentTypeError):
+                    assert_current()
                     raise BitTeamAPIError(response.status if response.status >= 300 else 502) from None
                 assert_current()
                 if (not 200 <= response.status < 300 or (isinstance(result, dict) and

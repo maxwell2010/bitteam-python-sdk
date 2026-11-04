@@ -98,9 +98,9 @@ class BitTeamAccountStreams(BitTeamMarketStreams):
             self._require_session(lifecycle)
             old = {id(sub): sub for sub in self._subscriptions.values()}
             old.update({id(proxy.subscription): proxy.subscription for proxy in requested})
-            await self.close()
             for subscription in old.values():
                 self._retire(subscription)
+            await self.close()
             self._require_session(lifecycle)
             await self.connect()
             replacements = {}

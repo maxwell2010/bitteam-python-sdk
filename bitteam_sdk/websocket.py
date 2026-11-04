@@ -119,9 +119,11 @@ class BitTeamWebSocket:
                 self._session = aiohttp.ClientSession(connector=aiohttp.TCPConnector(ssl=context),
                                                       cookie_jar=aiohttp.DummyCookieJar())
             try:
-                self.ws = await self._session.ws_connect(self.url, protocols=["nes"], origin="https://bit.team",
-                                                        max_msg_size=8 * 1024 * 1024,
-                                                        timeout=aiohttp.ClientWSTimeout(ws_close=5))
+                self.ws = await asyncio.wait_for(
+                    self._session.ws_connect(self.url, protocols=["nes"], origin="https://bit.team",
+                                             max_msg_size=8 * 1024 * 1024,
+                                             timeout=aiohttp.ClientWSTimeout(ws_close=5)),
+                    self.timeout)
             except BaseException:
                 await self._session.close()
                 raise
@@ -149,13 +151,20 @@ class BitTeamWebSocket:
         identity = self._sequence
         future = asyncio.get_running_loop().create_future()
         self._pending[identity] = future
-        try:
+        async def exchange():
             await self.ws.send_json(dict(payload, id=identity))
-            return await asyncio.wait_for(future, self.timeout)
+            return await future
+
+        try:
+            # Backpressure while sending belongs to the same RPC deadline.
+            return await asyncio.wait_for(exchange(), self.timeout)
         finally:
             self._pending.pop(identity, None)
             if not future.done():
                 future.cancel()
+            elif not future.cancelled():
+                # A disconnect may fail the reply while send_json is blocked.
+                future.exception()
 
     def _notify_error(self, error):
         for future in list(self._pending.values()):
@@ -164,7 +173,7 @@ class BitTeamWebSocket:
         for subscription in list(self._subscriptions.values()):
             if subscription.queue.full():
                 subscription.queue.get_nowait()
-            subscription.queue.put_nowait(error)
+            subscription.queue.put_nowait(getattr(subscription, "_terminal_error", None) or error)
 
     async def _reader(self):
         socket = self.ws
@@ -305,7 +314,7 @@ class BitTeamWebSocket:
         for sub in self._subscriptions.values():
             while not sub.queue.empty():
                 sub.queue.get_nowait()
-            sub.queue.put_nowait(None)
+            sub.queue.put_nowait(getattr(sub, "_terminal_error", None))
         self._subscriptions.clear()
 
     async def __aenter__(self):

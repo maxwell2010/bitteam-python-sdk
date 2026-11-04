@@ -46,6 +46,8 @@ class BitTeamArchive:
                 if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
                     raise ValueError("Invalid archive " + key)
         headers = {}
+        lifecycle = None
+        auth = self.auth
         if private:
             if not isinstance(self.auth, SessionAuth) or self.auth.state != AuthState.READY:
                 raise AuthenticationError(401)
@@ -58,13 +60,27 @@ class BitTeamArchive:
                     self.auth.auth_url.rstrip("/") != "https://auth2.bit.team/v1"):
                 raise ValueError("Production archive cannot receive credentials from a different API configuration")
             headers = self.auth.headers()
+            lifecycle = self.auth._lifecycle
+
+        def assert_current():
+            if self._closed:
+                raise RuntimeError("Archive client is closed")
+            if private:
+                if self.auth is not auth:
+                    raise asyncio.CancelledError("Authentication operation was invalidated")
+                auth._assert_lifecycle(lifecycle)
+                if transport._closed:
+                    raise RuntimeError("The owning BitTeam client is closed")
+
         session = await self._get_session()
+        assert_current()
         try:
             async with session.get(self.BASE_URL + endpoint, params=query_params(params), headers=headers, allow_redirects=False) as response:
                 try:
                     result = await response.json()
                 except (ValueError, aiohttp.ContentTypeError):
                     raise BitTeamAPIError(response.status if response.status >= 300 else 502) from None
+                assert_current()
                 if (not 200 <= response.status < 300 or (isinstance(result, dict) and
                         (result.get("ok") is False or result.get("status") is False or result.get("errors")))):
                     raise BitTeamAPIError(response.status, result.get("code") if isinstance(result, dict) else None)

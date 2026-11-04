@@ -1,7 +1,22 @@
 """Convenience methods mapped from the existing trading services."""
 from decimal import Decimal
 from datetime import datetime, timezone
-from .auth import BitTeamAPIError
+import asyncio
+from .auth import BitTeamAPIError, SessionAuth
+
+
+def private_read_guard(client):
+    """Bind a multi-read operation to one account, allowing token refresh."""
+    auth = getattr(client, "auth", None)
+    lifecycle = auth._lifecycle if isinstance(auth, SessionAuth) else None
+    def check():
+        if getattr(client, "_closed", False):
+            raise RuntimeError("Client is closed")
+        if lifecycle is not None:
+            if getattr(client, "auth", None) is not auth:
+                raise asyncio.CancelledError("Authentication operation was invalidated")
+            auth._assert_lifecycle(lifecycle)
+    return check
 
 
 def symbol_name(symbol):
@@ -146,18 +161,23 @@ class ServiceMethods:
             params["pairId"] = await self.rest._pair_id(symbol_name(symbol))
         return rows(await self.api.get_trades(params=params), "trades")
 
-    async def _iter_rows(self, fetch, *, page_size=100, max_pages=1000):
+    async def _iter_rows(self, fetch, *, page_size=100, max_pages=1000,
+                         private=False, identity_fields=("id", "trade_id", "orderId")):
         if isinstance(page_size, bool) or not isinstance(page_size, int) or not 1 <= page_size <= 1000:
             raise ValueError("Invalid page_size")
         if isinstance(max_pages, bool) or not isinstance(max_pages, int) or max_pages < 1:
             raise ValueError("Invalid max_pages")
+        guard = private_read_guard(self) if private else lambda: None
         seen = set()
         for page in range(max_pages):
+            guard()
             batch = await fetch(page_size, page * page_size)
+            guard()
             fresh = []
             for row in batch:
-                identity = row.get("id", row.get("trade_id", row.get("orderId")))
-                if identity is None:
+                identity = next((row[key] for key in identity_fields if key in row), None)
+                if (isinstance(identity, bool) or not isinstance(identity, (str, int))
+                        or isinstance(identity, str) and not identity.strip()):
                     raise BitTeamAPIError(502)
                 if str(identity) not in seen:
                     seen.add(str(identity))
@@ -165,7 +185,9 @@ class ServiceMethods:
             if batch and not fresh:
                 raise RuntimeError("Exchange repeated a pagination page")
             for row in fresh:
+                guard()
                 yield row
+                guard()
             if len(batch) < page_size:
                 return
         raise RuntimeError("Pagination reached max_pages; narrow the query")
@@ -180,7 +202,7 @@ class ServiceMethods:
 
     def iter_user_trades(self, *, pair=None, page_size=100, max_pages=1000):
         return self._iter_rows(lambda limit, offset: self.get_user_trades(limit, offset, pair=pair),
-                               page_size=page_size, max_pages=max_pages)
+                               page_size=page_size, max_pages=max_pages, private=True)
 
     async def get_candles_from_trades(self, symbol, interval="1m", *, limit=10000):
         from .marketdata import aggregate_trades
@@ -226,26 +248,11 @@ class ServiceMethods:
         return rows(payload, "trades")
 
     async def iter_user_orders(self, *, page_size=100, order_type="history", pair=None, max_pages=1000):
-        if not 1 <= page_size <= 1000 or max_pages < 1:
-            raise ValueError("Invalid pagination bounds")
-        seen = set()
-        for page in range(max_pages):
-            result = await self.get_user_orders(page_size, page * page_size, order_type, pair=pair)
-            fresh = []
-            for row in result:
-                identity = row.get("id", row.get("orderId"))
-                if identity is None:
-                    raise BitTeamAPIError(502)
-                if str(identity) not in seen:
-                    seen.add(str(identity))
-                    fresh.append(row)
-            if result and not fresh:
-                raise RuntimeError("Exchange pagination repeated a page")
-            for row in fresh:
-                yield row
-            if len(result) < page_size:
-                return
-        raise RuntimeError("Pagination reached max_pages; narrow the query")
+        async for row in self._iter_rows(
+                lambda limit, offset: self.get_user_orders(limit, offset, order_type, pair=pair),
+                page_size=page_size, max_pages=max_pages, private=True,
+                identity_fields=("id", "orderId")):
+            yield row
 
     async def get_order_info(self, order_id):
         self._require_ready()
@@ -295,7 +302,8 @@ class ServiceMethods:
     def iter_transactions(self, *, start=None, end=None, page_size=100, max_pages=1000):
         """Bounded, deduplicated reads; offsets are not a server snapshot."""
         return self._iter_rows(lambda limit, offset: self.get_transaction_history(
-            limit=limit, offset=offset, start=start, end=end), page_size=page_size, max_pages=max_pages)
+            limit=limit, offset=offset, start=start, end=end), page_size=page_size, max_pages=max_pages,
+            private=True, identity_fields=("id",))
 
     async def get_transactions(self, *, limit=100, offset=0, currency=None):
         self._require_ready()

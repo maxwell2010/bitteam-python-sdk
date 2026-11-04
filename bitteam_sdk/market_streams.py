@@ -6,7 +6,7 @@ publications were observed for all four channels, including trade.new, during
 the module's live check. These are raw events, not historical L2 snapshots.
 """
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import ssl
 
@@ -47,6 +47,7 @@ class MarketSubscription:
     channel: str
     queue: asyncio.Queue
     closed: bool = False
+    _terminal_error: object = field(default=None, repr=False)
 
     def __aiter__(self):
         return self
@@ -118,9 +119,11 @@ class BitTeamMarketStreams(BitTeamWebSocket):
                 self._session = aiohttp.ClientSession(
                     connector=aiohttp.TCPConnector(ssl=context), cookie_jar=aiohttp.DummyCookieJar())
             try:
-                self.ws = await self._session.ws_connect(
-                    self.url, protocols=["nes"], origin="https://bit.team",
-                    max_msg_size=8 * 1024 * 1024, timeout=aiohttp.ClientWSTimeout(ws_close=5))
+                self.ws = await asyncio.wait_for(
+                    self._session.ws_connect(
+                        self.url, protocols=["nes"], origin="https://bit.team",
+                        max_msg_size=8 * 1024 * 1024, timeout=aiohttp.ClientWSTimeout(ws_close=5)),
+                    self.timeout)
                 self._reader_task = asyncio.create_task(self._reader())
                 await self._rpc(hello)
             except BaseException:
@@ -152,8 +155,9 @@ class BitTeamMarketStreams(BitTeamWebSocket):
         # even when a slow consumer filled the bounded queue before reconnect.
         while not subscription.queue.empty():
             subscription.queue.get_nowait()
-        subscription.queue.put_nowait(MarketStreamGap(
-            "Market stream replaced; events may be missing, acquire a fresh snapshot"))
+        subscription._terminal_error = MarketStreamGap(
+            "Market stream replaced; events may be missing, acquire a fresh snapshot")
+        subscription.queue.put_nowait(subscription._terminal_error)
 
     async def reconnect(self, subscriptions):
         """Replace an explicit iterable of public subscriptions and return a path map.
@@ -181,9 +185,10 @@ class BitTeamMarketStreams(BitTeamWebSocket):
         async with self._subscription_lock:
             old = {id(sub): sub for sub in self._subscriptions.values()}
             old.update({id(sub): sub for sub in requested.values()})
-            await self.close()
+            # Retire before close yields to the reader or waiting consumers.
             for subscription in old.values():
                 self._retire(subscription)
+            await self.close()
             restored = {}
             try:
                 await self.connect()
@@ -191,9 +196,9 @@ class BitTeamMarketStreams(BitTeamWebSocket):
                     restored[path] = await self._subscribe_unlocked(path, subscription.channel)
                 return restored
             except BaseException:
-                await self.close()
                 for subscription in restored.values():
                     self._retire(subscription)
+                await self.close()
                 raise
 
     async def subscribe_tickers(self):

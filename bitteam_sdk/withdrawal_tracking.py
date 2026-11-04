@@ -4,7 +4,7 @@ import math
 from copy import deepcopy
 from dataclasses import dataclass, field
 from time import time
-from .auth import SessionAuth
+from .services import private_read_guard
 
 
 @dataclass(frozen=True)
@@ -24,10 +24,8 @@ class WithdrawalWaitTimeout(TimeoutError):
 async def read_withdrawal(client, identifier, *, source):
     if not isinstance(identifier, str) or not identifier.strip():
         raise ValueError("An existing record identifier is required")
-    if getattr(client, "_closed", False):
-        raise RuntimeError("Client is closed")
-    auth = getattr(client, "auth", None)
-    lifecycle = auth._lifecycle if isinstance(auth, SessionAuth) else None
+    guard = private_read_guard(client)
+    guard()
     if source == "p2p":
         payload = await client.p2p.get_withdrawal(path={"withdraw_id": identifier})
     elif source == "spot_transaction":
@@ -35,10 +33,7 @@ async def read_withdrawal(client, identifier, *, source):
         payload = await client.api.get_transaction_by_id(identifier)
     else:
         raise ValueError("source must be p2p or spot_transaction; orderId is not a transaction id")
-    if getattr(client, "_closed", False):
-        raise RuntimeError("Client is closed")
-    if lifecycle is not None:
-        auth._assert_lifecycle(lifecycle)
+    guard()
     if not isinstance(payload, dict):
         raise ValueError("Expected a withdrawal record object")
     return WithdrawalObservation(source, identifier, time(), deepcopy(payload))
@@ -58,9 +53,11 @@ async def wait_for_withdrawal(client, identifier, *, source, predicate,
         raise ValueError("max_requests must be an integer from 1 to 10000")
     if not callable(predicate):
         raise ValueError("A verified completion predicate is required")
+    guard = private_read_guard(client)
     loop = asyncio.get_running_loop()
     deadline, last = loop.time() + timeout, None
     for index in range(max_requests):
+        guard()
         remaining = deadline - loop.time()
         if remaining <= 0:
             raise WithdrawalWaitTimeout(last)
@@ -70,6 +67,7 @@ async def wait_for_withdrawal(client, identifier, *, source, predicate,
             if not done:
                 raise WithdrawalWaitTimeout(last)
             last = task.result()
+            guard()
         finally:
             if not task.done():
                 task.cancel()
@@ -81,6 +79,7 @@ async def wait_for_withdrawal(client, identifier, *, source, predicate,
             if asyncio.iscoroutine(decision):
                 decision.close()
             raise TypeError("Completion predicate must return bool synchronously")
+        guard()
         if loop.time() >= deadline:
             raise WithdrawalWaitTimeout(last)
         if decision:

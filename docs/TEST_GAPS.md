@@ -160,14 +160,31 @@ Remaining code gaps include optional certifi-import fallback, several invalid co
 
 ## Scripts and CI portability
 
-- Workflow `.github/workflows/sdk.yml`: Windows/Linux x Python 3.10, 3.11, 3.12, 3.13; push/PR run the full offline suite, skip audit and upload JUnit only. Build, fresh-venv wheel smoke and distribution upload require manual workflow_dispatch with verify_distribution=true (default false). Workflow execution in GitHub has not been observed in this audit. Do not equate YAML existence with passing CI.
+- Workflow `.github/workflows/sdk.yml`: Windows/Linux x Python 3.10, 3.11, 3.12, 3.13; push/PR run the full offline suite, skip audit and upload JUnit only. Build, fresh-venv wheel smoke and distribution upload require manual workflow_dispatch with verify_distribution=true (default false). Historical run 41847439819 was inspected through GitHub API during cloud continuation: all eight Windows/Linux Python 3.10-3.13 jobs succeeded, including pytest and skip audit; distribution steps were skipped. This does not validate subsequent changes.
 - Existing real Windows DPAPI roundtrip is the only allowed non-Windows skip. Portable encrypted-cache tests use their synthetic Fernet protector on all platforms. Windows must execute native DPAPI; it is not skipped there.
 - `check_test_skips.py` rejects an empty JUnit report and unexpected skips; negative regression cases cover Windows and Linux names/classnames.
 - `check_wheel.py` uses an explicit single wheel, a fresh venv, Python -I, pip --isolated and an external temporary working directory. It validates installed-version metadata, bundled schemas/catalogs and core callable facades while blocking SDK network/session creation. It is a smoke, not a run of all unit tests against the installed artifact. Optional sqlite/postgres module files are checked; optional feature behavior needs its dependency extras.
 - `test_ci_scripts_review.py` mocks subprocess and venv creation, so the new pip-isolation branch is not claimed to be an actual fresh install. No new wheel or source archive was built during this audit.
 - Earlier local Windows checks were 581 passed on Python3.10 and 3.11, 578 on Python3.12 at an older suite snapshot. These counts are historical; they exclude this audit's new regressions and subsequent parallel changes.
-- Local Linux WSL has Python3.12 but lacks ensurepip/venv and pytest dependencies; it was not configured. Python3.13 is not installed locally. Linux and 3.13 remain unexecuted until observed CI results.
+- Local Linux WSL has Python3.12 but lacks ensurepip/venv and pytest dependencies; it was not configured. Python3.13 is not installed locally. This historical local limitation is superseded for the earlier main snapshot by observed CI run 41847439819; the current cloud baseline also ran Linux Python 3.12.14.
 - Public live scripts are opt-in and excluded from CI. `live_extended.py --account-profile` has an explicit account mode; it was not used. The sample reports record UTC run time rather than a hardcoded date. Public sample pairs/IDs and market/news backend availability can change.
 - Building/installing is intentionally not part of this audit run. Push/PR never build distributions; explicit manual verify_distribution=true is required after the agreed verification gate. No release/publish step exists in the workflow.
 
-Priority remaining validation: observed Windows/Linux 3.10-3.13 CI, installed-artifact full test run after authorized build, public market/docs/archive availability and schemas, optional PostgreSQL/chart runtime coverage. Real account/financial/2FA delivery testing requires its separately authorized scope and cannot be replaced by catalog route-count tests.
+Priority remaining validation: Windows/Linux 3.10-3.13 CI for new changes, installed-artifact full test run after authorized build, public market/docs/archive availability and schemas, optional PostgreSQL/chart runtime coverage. Real account/financial/2FA delivery testing requires its separately authorized scope and cannot be replaced by catalog route-count tests.
+
+
+## Cloud continuation evidence (2026-11-04)
+
+| Check | Actual result | Boundary |
+|---|---|---|
+| Initial main 8215216, Linux Python 3.12.14, configured venv | 706 passed, 1 native DPAPI skip; check_test_skips passed | Synthetic suite, including local HTTPS; no account calls |
+| Sandbox-only baseline attempt | Local TCP bind denied; interrupted after stalled recorder test | Environment restriction, not SDK success; repeated with local socket access |
+| Historical GitHub run [41847439819](https://github.com/maxwell2010/bitteam-python-sdk/actions/runs/41847439819) | Eight jobs success, Windows/Linux Python 3.10-3.13; pytest and skip audit success | Prior main; build/wheel steps skipped |
+| Final cloud suite | 752 passed, 1 native DPAPI skip; check_test_skips passed | Linux Python 3.12.14, 753 collected; new branch CI checked separately below |
+| Archive lifecycle regressions | Initial four tests failed before fix; auth-replacement follow-up also failed before fix; final seven cases pass | Synthetic auth and fake transport only |
+| Private read / polling / pagination regressions | 33 new cases; initial red runs reproduced account-boundary and identifier defects; 139 related tests passed | Session replacement/logout invalidates reads, buffered rows and subsequent pages; same-session refresh allowed |
+| Stream regressions | Initial five cases failed; six final cases and 103 related tests passed | Blocked send/handshake timeout, public/private reconnect gap; no live replay evidence |
+
+No public exchange probes were made: the configured HTTP allowlist does not include BitTeam hosts. No secrets, removed session caches, account endpoints, financial operations, code delivery, builds, tags or releases were used. Account delivery/expiry, financial outcomes, terminal withdrawal statuses, orderId-to-transaction.id mapping and replay remain unverified.
+
+Independent agents cross-reviewed read/archive and stream changes and reran the other area’s synthetic regressions. New tests: test_read_lifecycle_review.py (33), test_cloud_stream_review.py (6), test_cloud_archive_review.py (7). Coverage percentages above belong to the previous audit and were not recomputed.

@@ -75,3 +75,26 @@ review прошли. Финальный полный результат1277passe
 Поздняя точечная spot-selector correction описана ниже. CIqueued снаружи указыватьpending, неsuccess.
 
 Spot-selector correction: неизвестный USDT selector и multi-network non-USDT без доказанного selector отклоняются planner-ом до submit. Метаданные каталога доступны; новые сети/arb/baseSymbol не добавлены. Три подтверждённых USDT mapping и single-native сохранены. Финальный full1295passed1nativeDPAPI skip, skip audit passed;18новых pure/fake-dispatch регрессий, независимый review. CI нового head при внешнем queued отмечать pending.
+
+## Storage/optional/CI follow-up (2026-11-04)
+
+Actual isolated SQLite and PostgreSQL runtime checks now cover memory lifetime,
+init cleanup, transactional retention and per-series database serialization.
+retention=None explicitly preserves history; rolling default2000 is unchanged.
+Real pandas/Plotly checks cover empty OHLCV and headless returned Figure; fresh
+core-only venv source smoke confirms optional packages remain optional. Static
+tracked-path/link checks repair canonical README without building the SDK.
+Detailed versions, evidence and limits: docs/TEST_GAPS.md.
+
+PR/main CI remains enabled, feature push duplication removed, concurrency added;
+new independent PostgreSQL-service and fresh-core-source jobs supplement the
+8 OS/Python jobs. Old 1cbb855 runs are now completed/failure, not queued: both
+Python3.10 jobs used unavailable Task.cancelling in a test; the assertion was
+made portable. Old queue cause remains unknown. Use API evidence for the new
+exact SHA; do not infer success from local counts or an older run. No versions,
+builds, releases, real account calls, user cache reads or SDK installation.
+
+Final targeted real-PG two-pool retention=1 barrier test did not reproduce the
+race with current advisory serialization; different-key parallelism and cancel
+recovery passed. Standalone runtime:12 checks passed; full pytest:1362 passed,
+1 nativeDPAPI skip, skip audit passed. Core-only source smoke passed, not wheel.

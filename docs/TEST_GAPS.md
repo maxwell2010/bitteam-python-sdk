@@ -543,3 +543,54 @@ were used by composite tests, with all HTTP replaced by fakes.
 the pre-selector snapshot. Exact updated head and observed CI status remain
 in draft PR#1 description; externally queued jobs are pending, not success.
 User cache, account/financial operations, versions/builds/releases untouched.
+
+## Storage, optional runtime and source compatibility review (2026-11-04)
+
+Baseline at 1cbb855: 1295 passed, one native DPAPI skip. All work below uses
+synthetic data, fake account transports or isolated local runtimes; no BitTeam
+account/financial endpoint or user cache was accessed. No SDK distribution was
+built/installed, and version metadata remains frozen.
+
+| Area | Actual verification and corrected behavior | Limits |
+| --- | --- | --- |
+| SQLite | 21 runtime regressions, including real file and :memory: connections; the original memory database disappeared after init. Owned memory connection now lasts until close; rollback/cancellation, series isolation and retention are exercised. | Synthetic local data only. |
+| PostgreSQL | Real PostgreSQL 16.15, asyncpg 0.32.0, isolated tmpfs container and per-run disposable schema. Repeated init/failed init, atomic upsert+retention rollback/cancel, concurrent writers and close lifecycle exercised. Per-series transaction advisory lock prevents overlapping retention snapshots. | Not a mock result or a production deployment/load test. Dedicated CI service job runs the same standalone script; server absence is a failure, not a pytest skip. |
+| History policy | Default rolling retention remains 2000 per symbol/interval; explicit retention=None preserves all rows for SQLite and PostgreSQL. Latest-first SQL results are returned chronologically. | Persistence is bounded by caller storage capacity in full-history mode. |
+| DataFrame/charts | 8 real pandas/Plotly checks: pandas 3.1.1/Plotly 7.1.0 and independently pandas 2.2.3/Plotly 5.24.1, Python 3.12.14. Empty OHLCV now has DatetimeIndex and can resample. show=False returns Figure; JSON/self-contained HTML checked without browser or network renderer. | Numeric frames can round decimals; timestamps retain legacy naive UTC, input order and duplicates. Infinity acceptance was observed, not classified as a new crash or invented validation contract. |
+| Core-only source | Fresh venv, requirements-sdk.txt only, Python 3.12.14 -I, explicit checkout root, all 33 exports, constructors/idempotent close and pure helpers passed. pandas/plotly/asyncpg/aiosqlite absent by module spec and distribution metadata. HTTP/connect/cache operations forbidden. | This is source-only verification, NOT installed-wheel verification; no SDK install/build. Separate CI job repeats it. |
+| Facades/examples | Real README offline blocks execute with HTTP prohibited; captured auth protects client cleanup across awaits. Missing ticker price no longer fabricates zero; invalid/nonfinite/negative values reject. | Auth example is explicitly side-effecting and was not run against an account. |
+| Source documentation | project.readme now resolves to tracked root README; legacy documentation preserved. Static regressions validate tracked readme, case-sensitive relative Markdown links and casefold path collisions. | No packaging artifact was generated; external links and heading anchors are not fetched/validated. |
+
+CI policy now runs feature changes through pull_request only, preserves main
+push checks and all eight Windows/Linux Python 3.10-3.13 matrix combinations,
+and cancels superseded runs per workflow/event/PR-or-ref. PostgreSQL and core
+source jobs are additional checks. Push/PR distribution steps remain disabled.
+
+The previously queued runs 41864486890 (PR) and 41864480057 (push), both for
+1cbb855, subsequently completed with six successful and two failed jobs each.
+All four failed logs identify the same Python 3.10 test-only AttributeError:
+Task.cancelling() is unavailable. The assertion now yields to the event loop
+and checks that the pending task remains unfinished. No SDK behavior/check was
+disabled. The original queue cause is not established by available metadata.
+Cancellation of the duplicate was attempted while queued but GitHub returned
+Forbidden; no cancellation occurred, and completed runs were not retried for
+cancellation. Exact final SHA and CI evidence are recorded in draft PR #1.
+
+The existing account/financial, public-live and limited static-JS provenance
+boundaries above remain unchanged. This review does not establish complete
+site coverage, backend terminal enums, token-expiry semantics, replay guarantees
+or any new withdrawal-network selector.
+
+Final targeted actual-PG check additionally uses TWO separate PostgresStorage
+pools with retention=1 and a client-held real SQL advisory barrier. Server
+pg_stat_activity proves both same-key writers are blocked; another symbol and
+interval finish concurrently. Releasing the barrier leaves only the latest
+row. Cancellation while waiting and a fresh subsequent write pass. The race
+was NOT reproduced with the current database lock; no additional production
+change was made. All 12 standalone PostgreSQL checks passed and disposable
+schemas were removed.
+
+Final full offline/default suite: **1362 passed, 1 native DPAPI skip**,
+1363 collected, Linux Python3.12.14; skip audit passed. Runtime PostgreSQL checks
+are separate actual-service checks, not hidden skips or mock passes. Exact-SHA
+GitHub CI must be reported separately from these local results.

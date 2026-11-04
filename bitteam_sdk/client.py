@@ -1,7 +1,7 @@
 """High-level BitTeam client with API-key and interactive session login."""
 from .rest import BitTeamRestAPI
 from .auth import SessionAuth, PublicAuth, AuthState, LoginResult
-from .services import ServiceMethods
+from .services import ServiceMethods, private_read_guard
 
 
 class BitTeamClient(ServiceMethods):
@@ -82,21 +82,27 @@ class BitTeamClient(ServiceMethods):
         return result
 
     async def logout(self):
+        auth = self._session_auth()
+        guard = private_read_guard(self)
         try:
             if self._account_streams is not None:
                 await self._account_streams.close()
         finally:
-            await self._session_auth().logout()
+            guard()
+            await auth.logout()
 
     async def resume_session(self, *, validate=True):
         return await self._session_auth().resume(validate=validate)
 
     async def clear_session(self):
+        auth = self._session_auth()
+        guard = private_read_guard(self)
         try:
             if self._account_streams is not None:
                 await self._account_streams.close()
         finally:
-            await self._session_auth().clear_session()
+            guard()
+            await auth.clear_session()
 
     def _require_ready(self):
         if self._closed:
@@ -236,9 +242,9 @@ class BitTeamClient(ServiceMethods):
         return Kline.to_dataframe([[k.open_time, k.open, k.high, k.low, k.close, k.volume] for k in candles])
 
     @staticmethod
-    def plot_klines(frame, title="BitTeam"):
+    def plot_klines(frame, title="BitTeam", *, show=True):
         from .charting import plot_candles
-        return plot_candles(frame, title)
+        return plot_candles(frame, title, show=show)
 
     async def __aenter__(self):
         if self._closed:

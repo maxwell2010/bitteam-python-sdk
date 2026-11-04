@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "bitteam-python-sdk"
 version = "1.6.0"
 description = "Async BitTeam SDK with API keys, session auth, full REST catalog and market history"
-readme = "bitteam_sdk/README.md"
+readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["aiohttp>=3.12,<4", "certifi>=2024.7.4"]
 
@@ -14,7 +14,7 @@ dependencies = ["aiohttp>=3.12,<4", "certifi>=2024.7.4"]
 charts = ["pandas>=2", "plotly>=5"]
 sqlite = ["aiosqlite>=0.20"]
 postgres = ["asyncpg>=0.29"]
-dev = ["pytest>=8,<9", "pytest-asyncio>=0.24,<1", "cryptography>=43", "aiosqlite>=0.20", "build>=1", "pytest-cov>=5"]
+dev = ["pytest>=8,<9", "pytest-asyncio>=0.24,<1", "cryptography>=43", "aiosqlite>=0.20", "build>=1", "pytest-cov>=5", "PyYAML>=6,<7", "pandas>=2", "plotly>=5", "markdown-it-py>=3,<5", "tomli>=2,<3; python_version<'3.11'"]
 
 [tool.setuptools.packages.find]
 include = ["bitteam_sdk", "bitteam_sdk.storage", "bitteam_sdk.schemas"]

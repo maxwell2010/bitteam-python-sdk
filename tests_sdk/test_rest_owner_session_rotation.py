@@ -86,7 +86,8 @@ async def test_assigning_same_auth_preserves_session_and_does_not_cancel_request
     try:
         rest.auth = auth
         assert rest._session is session
-        assert not task.cancelling()
+        await asyncio.sleep(0)
+        assert not task.done()
     finally:
         auth._pending_requests.discard(task)
         task.cancel()

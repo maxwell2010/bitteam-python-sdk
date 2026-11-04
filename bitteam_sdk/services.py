@@ -1,5 +1,5 @@
 """Convenience methods mapped from the existing trading services."""
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from datetime import datetime, timezone
 import asyncio
 from .auth import BitTeamAPIError, SessionAuth
@@ -131,12 +131,30 @@ class ServiceMethods:
         return dict(pair, symbol=symbol_name(symbol).upper())
 
     async def get_ticker(self, symbol):
+        """Return finite Decimal quotes; unavailable last/bid/ask remain None."""
         pair = await self.get_trading_pair_info(symbol)
         book = await self.get_orderbook(symbol, 1)
+        def price(value):
+            try:
+                number = Decimal(str(value))
+            except (InvalidOperation, ValueError, TypeError):
+                raise BitTeamAPIError(502) from None
+            if not number.is_finite() or number < 0:
+                raise BitTeamAPIError(502)
+            return number
+        def best_quote(side):
+            if not isinstance(side, list):
+                raise BitTeamAPIError(502)
+            if not side:
+                return None
+            if not isinstance(side[0], (list, tuple)) or len(side[0]) < 2:
+                raise BitTeamAPIError(502)
+            return price(side[0][0])
+        last = pair.get("lastPrice")
         return {"symbol": symbol_name(symbol).upper(),
-            "last_price": Decimal(str(pair.get("lastPrice") or 0)),
-            "bid": Decimal(str(book["bids"][0][0])) if book["bids"] else None,
-            "ask": Decimal(str(book["asks"][0][0])) if book["asks"] else None,
+            "last_price": price(last) if last is not None else None,
+            "bid": best_quote(book["bids"]),
+            "ask": best_quote(book["asks"]),
             "change24": pair.get("change24"), "volume24": pair.get("volume24"),
             "change_24h": pair.get("change24"), "volume": pair.get("volume24"),
             "volume24USD": pair.get("volume24USD", pair.get("quoteVolume24")), "raw": pair}

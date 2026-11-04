@@ -259,3 +259,11 @@ The production code and related regressions were independently cross-reviewed
 by agents; network probes supplied by the user retain the separate provenance
 above. New CI must be observed for the pushed commit, not inferred from this
 local run or prior successful jobs.
+
+
+Observed code-commit CI: `0de21edb3d2cd58b4c9a5478af612775b914fb82`, PR
+[run41856293623](https://github.com/maxwell2010/bitteam-python-sdk/actions/runs/41856293623).
+GitHub API showed all8 Windows/Linux Python3.10-3.13 jobs completed successfully;
+pytest and skip audit succeeded in every job, build/wheel smoke/upload steps
+were skipped. This entry records that code commit; subsequent documentation
+record commits do not inherit an unobserved CI result.

@@ -48,3 +48,5 @@ for exact red/green/provenance, including externally reported local probes.
 The extensible network-withdrawal prepare guard is not evidence of a stock
 public-GET race: existing tracked operations already invalidated those reads.
 No versions/builds/releases/account calls or financial operations were made.
+
+Code commit 0de21edb3d2cd58b4c9a5478af612775b914fb82 прошёл run41856293623: все8 Windows/Linux Python3.10-3.13 jobs, pytest и skip audit success; distributions skipped. Этот результат проверен через GitHub API и относится к code commit.

@@ -103,3 +103,8 @@ EXTENDED_CHECKS.json содержит 25 успешных живых прове�
 ## Текущий аудит без выпуска версии - 2026-11-04
 
 Полный набор: **707 passed** на Windows/Python3.12. Исправлены auth/REST lifecycle races, closed-client guards, ожидание завершения shutdown, таймеры polling, stale WebSocket reader/subscription races, SQLite cancellation, некорректные свечи, идентификаторы и envelopes P2P, guards и редактирование ошибок side-service transports. Все исправления проверены синтетически, без финансовых операций. Локальный профиль main удалён по запросу пользователя. Новые версии и сборки не создавались.
+
+
+## GitHub CI - 2026-11-04
+
+Все восемь jobs Windows/Linux × Python3.10-3.13 успешно завершены: https://github.com/maxwell2010/bitteam-python-sdk/actions/runs/41847439819 . Выполнялись тесты и аудит skipped; сборка дистрибутивов выключена на push/PR. Нативный DPAPI test пропускается только внеWindows, согласно проверке JUnit. Это подтверждение переносимости тестового набора, не подтверждение приватных финансовых маршрутов биржи.

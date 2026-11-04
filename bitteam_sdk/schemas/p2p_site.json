@@ -1,0 +1,964 @@
+{
+  "version": 1,
+  "date": "2026-11-03",
+  "base_url": "https://api-v2.bit.team/api/v2",
+  "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+  "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+  "coverage": {
+    "helper_object_module": 35426,
+    "total_helpers": 62,
+    "included_helpers": 61,
+    "excluded": {
+      "getRequestCabinet": "arbitrary caller path; no fixed template, intentionally not exposed"
+    },
+    "other_page_direct_axios_operations": "auth/user added from direct callsite; journal/other paths not claimed complete",
+    "private_live_verified": false,
+    "derived_callsite_operations": [
+      "get_accounts",
+      "get_withdrawal"
+    ],
+    "derived_callsite_unique_routes": 2
+  },
+  "operations": {
+    "create_new_withdraw": {
+      "js_helper": "createNewWithdraw",
+      "method": "POST",
+      "path": "/account/create-withdraw",
+      "private": true,
+      "get_mutation": false,
+      "query": {
+        "currency_id": {
+          "required": true
+        }
+      },
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 115092,
+      "source_excerpt": "createNewWithdraw:function(e,t,n){return r.Z.postRequest(\"/account/create-withdraw?currency_id=\".concat(e),t,n)},"
+    },
+    "confirm_new_withdraw": {
+      "js_helper": "confirmNewWithdraw",
+      "method": "GET",
+      "path": "/account/verification-withdraw/{code}",
+      "private": true,
+      "get_mutation": true,
+      "query": {},
+      "path_params": [
+        "code"
+      ],
+      "body_schema": null,
+      "source_offset": 115205,
+      "source_excerpt": "confirmNewWithdraw:function(e,t){return r.Z.getRequest(\"/account/verification-withdraw/\".concat(e),t)},"
+    },
+    "create_new_wallet_for_account": {
+      "js_helper": "createNewWalletForAccount",
+      "method": "GET",
+      "path": "/account/create-wallet/{currency_id}",
+      "private": true,
+      "get_mutation": true,
+      "query": {},
+      "path_params": [
+        "currency_id"
+      ],
+      "body_schema": null,
+      "source_offset": 115308,
+      "source_excerpt": "createNewWalletForAccount:function(e,t){return r.Z.getRequest(\"/account/create-wallet/\".concat(e),t)},"
+    },
+    "get_active_operations": {
+      "js_helper": "getActiveOperations",
+      "method": "GET",
+      "path": "/operations/active",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 115410,
+      "source_excerpt": "getActiveOperations:function(e,t){return r.Z.getRequest(\"/operations/active\",e,t)},"
+    },
+    "get_archive_operations": {
+      "js_helper": "getArchiveOperations",
+      "method": "GET",
+      "path": "/operations/archive",
+      "private": true,
+      "get_mutation": false,
+      "query": {
+        "page": {
+          "required": true
+        },
+        "limit": {
+          "required": true
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 115493,
+      "source_excerpt": "getArchiveOperations:function(e,t,n){return r.Z.getRequest(\"/operations/archive?page=\".concat(e,\"&limit=\").concat(t),n)},"
+    },
+    "get_archived_adverts": {
+      "js_helper": "getArchivedAdverts",
+      "method": "GET",
+      "path": "/anunt/my-advert",
+      "private": true,
+      "get_mutation": false,
+      "query": {
+        "archive": {
+          "fixed": 1
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 115614,
+      "source_excerpt": "getArchivedAdverts:function(e){return r.Z.getRequest(\"/anunt/my-advert?archive=1\",e)},"
+    },
+    "get_archive_payment_system": {
+      "js_helper": "getArchivePaymentSystem",
+      "method": "GET",
+      "path": "/user/get-payment-detail",
+      "private": true,
+      "get_mutation": false,
+      "query": {
+        "code": {
+          "required": true
+        },
+        "archive": {
+          "fixed": 1
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 115700,
+      "source_excerpt": "getArchivePaymentSystem:function(e,t,n){return r.Z.getRequest(\"/user/get-payment-detail?code=\".concat(e,\"&archive=1\"),t,n)},"
+    },
+    "send_messages_operation": {
+      "js_helper": "sendMessagesOperation",
+      "method": "POST",
+      "path": "/operations/send-message",
+      "private": true,
+      "get_mutation": false,
+      "query": {
+        "link": {
+          "required": true
+        }
+      },
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 115824,
+      "source_excerpt": "sendMessagesOperation:function(e,t,n){return r.Z.postRequest(\"/operations/send-message?link=\".concat(e),t,n)},"
+    },
+    "create_operation": {
+      "js_helper": "createOperation",
+      "method": "POST",
+      "path": "/operations/create",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 115934,
+      "source_excerpt": "createOperation:function(e,t){return r.Z.postRequest(\"/operations/create\",e,t)},"
+    },
+    "get_my_advert": {
+      "js_helper": "getMyAdvert",
+      "method": "GET",
+      "path": "/anunt/my-advert",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 116014,
+      "source_excerpt": "getMyAdvert:function(e){return r.Z.getRequest(\"/anunt/my-advert\",e)},"
+    },
+    "change_status_all": {
+      "js_helper": "changeStatusAll",
+      "method": "GET",
+      "path": "/user/change-status-all",
+      "private": true,
+      "get_mutation": true,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 116083,
+      "source_excerpt": "changeStatusAll:function(e){return r.Z.getRequest(\"/user/change-status-all\",e)},"
+    },
+    "change_status_advert": {
+      "js_helper": "changeStatusAdvert",
+      "method": "POST",
+      "path": "/anunt/change-status-advert",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 116163,
+      "source_excerpt": "changeStatusAdvert:function(e,t){return r.Z.postRequest(\"/anunt/change-status-advert\",{advert:e},t)},",
+      "known_body_keys": [
+        "advert"
+      ]
+    },
+    "get_operation": {
+      "js_helper": "getOperation",
+      "method": "GET",
+      "path": "/operations/get-operation",
+      "private": true,
+      "get_mutation": false,
+      "query": {
+        "link": {
+          "required": true
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 116264,
+      "source_excerpt": "getOperation:function(e,t,n){return r.Z.getRequest(\"/operations/get-operation?link=\".concat(e),t,n)},"
+    },
+    "accept_operation": {
+      "js_helper": "acceptOperation",
+      "method": "GET",
+      "path": "/operations/accept-operation",
+      "private": true,
+      "get_mutation": true,
+      "query": {
+        "link": {
+          "required": true
+        },
+        "use_btt_commission": {
+          "default": 0
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 116365,
+      "source_excerpt": "acceptOperation:function(e){var t=arguments.length>1&&void 0!==arguments[1]?arguments[1]:0,n=arguments.length>2?arguments[2]:void 0;return r.Z.getRequest(\"/operations/accept-operation?link=\".concat(e,\"&use_btt_commission=\").concat(t),n)},"
+    },
+    "pay_operation": {
+      "js_helper": "payOperation",
+      "method": "GET",
+      "path": "/operations/pay-operation",
+      "private": true,
+      "get_mutation": true,
+      "query": {
+        "link": {
+          "required": true
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 116603,
+      "source_excerpt": "payOperation:function(e,t){return r.Z.getRequest(\"/operations/pay-operation?link=\".concat(e),t)},"
+    },
+    "send_coin_operation": {
+      "js_helper": "sendCoinOperation",
+      "method": "GET",
+      "path": "/operations/send-coin-operation",
+      "private": true,
+      "get_mutation": true,
+      "query": {
+        "link": {
+          "required": true
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 116700,
+      "source_excerpt": "sendCoinOperation:function(e,t){return r.Z.getRequest(\"/operations/send-coin-operation?link=\".concat(e),t)},"
+    },
+    "cancel_operation": {
+      "js_helper": "cancelOperation",
+      "method": "GET",
+      "path": "/operations/cancel-operation",
+      "private": true,
+      "get_mutation": true,
+      "query": {
+        "link": {
+          "required": true
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 116808,
+      "source_excerpt": "cancelOperation:function(e,t){return r.Z.getRequest(\"/operations/cancel-operation?link=\".concat(e),t)},"
+    },
+    "dispute_operation": {
+      "js_helper": "disputeOperation",
+      "method": "POST",
+      "path": "/operations/dispute-operation",
+      "private": true,
+      "get_mutation": false,
+      "query": {
+        "link": {
+          "required": true
+        }
+      },
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 116911,
+      "source_excerpt": "disputeOperation:function(e,t,n){return r.Z.postRequest(\"/operations/dispute-operation?link=\".concat(e),t,n)},"
+    },
+    "save_review_to_user": {
+      "js_helper": "saveReviewToUser",
+      "method": "POST",
+      "path": "/operations/review-operation",
+      "private": true,
+      "get_mutation": false,
+      "query": {
+        "link": {
+          "required": true
+        }
+      },
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 117021,
+      "source_excerpt": "saveReviewToUser:function(e,t,n){return r.Z.postRequest(\"/operations/review-operation?link=\".concat(e),t,n)},"
+    },
+    "get_messages_operation": {
+      "js_helper": "getMessagesOperation",
+      "method": "GET",
+      "path": "/operations/get-messages",
+      "private": true,
+      "get_mutation": false,
+      "query": {
+        "link": {
+          "required": true
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 117130,
+      "source_excerpt": "getMessagesOperation:function(e,t){return r.Z.getRequest(\"/operations/get-messages?link=\".concat(e),t)},"
+    },
+    "get_messages_support": {
+      "js_helper": "getMessagesSupport",
+      "method": "GET",
+      "path": "/support/ticket/{ticket_id}/messages",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [
+        "ticket_id"
+      ],
+      "body_schema": null,
+      "source_offset": 117234,
+      "source_excerpt": "getMessagesSupport:function(e,t){return r.Z.getRequest(\"/support/ticket/\".concat(t,\"/messages\"),e)},"
+    },
+    "get_ticket_subjects": {
+      "js_helper": "getTicketSubjects",
+      "method": "GET",
+      "path": "/support/list-subjects",
+      "private": true,
+      "get_mutation": false,
+      "query": {
+        "project_id": {
+          "fixed": 1
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 117334,
+      "source_excerpt": "getTicketSubjects:function(e){return r.Z.getRequest(\"/support/list-subjects?project_id=1\",e)},"
+    },
+    "get_tickets": {
+      "js_helper": "getTickets",
+      "method": "GET",
+      "path": "/support/list-tickets",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 117428,
+      "source_excerpt": "getTickets:function(e){return r.Z.getRequest(\"/support/list-tickets\",e)},"
+    },
+    "send_messages_support": {
+      "js_helper": "sendMessagesSupport",
+      "method": "POST",
+      "path": "/support/send-messages",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 117501,
+      "source_excerpt": "sendMessagesSupport:function(e,t){return r.Z.postRequest(\"/support/send-messages\",e,t)},"
+    },
+    "create_ticket": {
+      "js_helper": "createTicket",
+      "method": "POST",
+      "path": "/support/ticket/create",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 117589,
+      "source_excerpt": "createTicket:function(e,t){return r.Z.postRequest(\"/support/ticket/create\",e,t)},"
+    },
+    "get_auth_google": {
+      "js_helper": "getAuthGoogle",
+      "method": "GET",
+      "path": "/user/auth-google-first",
+      "private": true,
+      "get_mutation": true,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 117670,
+      "source_excerpt": "getAuthGoogle:function(e){return r.Z.getRequest(\"/user/auth-google-first\",e)},"
+    },
+    "get_auth_google_active": {
+      "js_helper": "getAuthGoogleActive",
+      "method": "GET",
+      "path": "/user/auth-google-active",
+      "private": true,
+      "get_mutation": true,
+      "query": {
+        "code": {
+          "required": true
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 117748,
+      "source_excerpt": "getAuthGoogleActive:function(e,t){return r.Z.getRequest(\"/user/auth-google-active?code=\".concat(e),t)},"
+    },
+    "get_auth_google_confirm": {
+      "js_helper": "getAuthGoogleConfirm",
+      "method": "GET",
+      "path": "/user/auth-google-confirm",
+      "private": true,
+      "get_mutation": true,
+      "query": {
+        "code": {
+          "required": true
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 117851,
+      "source_excerpt": "getAuthGoogleConfirm:function(e,t){return r.Z.getRequest(\"/user/auth-google-confirm?code=\".concat(e),t)},"
+    },
+    "get_user_payments": {
+      "js_helper": "getUserPayments",
+      "method": "GET",
+      "path": "/user/get-payment-detail",
+      "private": true,
+      "get_mutation": false,
+      "query": {
+        "currency_id": {
+          "required": false
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 117956,
+      "source_excerpt": "getUserPayments:function(e,t,n){return r.Z.getRequest(e?\"/user/get-payment-detail?currency_id=\".concat(e):\"/user/get-payment-detail\",t,n)},"
+    },
+    "get_payments_systems_list": {
+      "js_helper": "getPaymentsSystemsList",
+      "method": "GET",
+      "path": "/user/get-payment-systems",
+      "private": true,
+      "get_mutation": false,
+      "query": {
+        "currency_id": {
+          "required": false
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 118095,
+      "source_excerpt": "getPaymentsSystemsList:function(e,t,n){return r.Z.getRequest(e?\"/user/get-payment-systems?currency_id=\".concat(e):\"/user/get-payment-systems\",t,n)},"
+    },
+    "add_payment_system": {
+      "js_helper": "addPaymentSystem",
+      "method": "POST",
+      "path": "/user/add-payment-systems",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 118243,
+      "source_excerpt": "addPaymentSystem:function(e,t,n){return r.Z.postRequest(\"/user/add-payment-systems\",e,t,n)},"
+    },
+    "del_payment_system": {
+      "js_helper": "delPaymentSystem",
+      "method": "GET",
+      "path": "/user/del-payment-systems/{payment_id}",
+      "private": true,
+      "get_mutation": true,
+      "query": {},
+      "path_params": [
+        "payment_id"
+      ],
+      "body_schema": null,
+      "source_offset": 118335,
+      "source_excerpt": "delPaymentSystem:function(e,t){return r.Z.getRequest(\"/user/del-payment-systems/\".concat(e),t)},"
+    },
+    "get_source_price": {
+      "js_helper": "getSourcePrice",
+      "method": "GET",
+      "path": "/anunt/get-price-source",
+      "private": true,
+      "get_mutation": false,
+      "query": {
+        "coin": {
+          "required": true
+        },
+        "currency": {
+          "required": true
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 118431,
+      "source_excerpt": "getSourcePrice:function(e,t,n){return r.Z.getRequest(\"/anunt/get-price-source?coin=\".concat(e,\"&currency=\").concat(t),n)},"
+    },
+    "create_new_advert": {
+      "js_helper": "createNewAdvert",
+      "method": "POST",
+      "path": "/anunt/create-new-advert",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 118553,
+      "source_excerpt": "createNewAdvert:function(e,t){return r.Z.postRequest(\"/anunt/create-new-advert\",e,t)},"
+    },
+    "get_advert_edit": {
+      "js_helper": "getAdvertEdit",
+      "method": "GET",
+      "path": "/anunt/get-edit-advert/{advert_id}",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [
+        "advert_id"
+      ],
+      "body_schema": null,
+      "source_offset": 118639,
+      "source_excerpt": "getAdvertEdit:function(e,t){return r.Z.getRequest(\"/anunt/get-edit-advert/\".concat(e),t)},"
+    },
+    "get_subjects": {
+      "js_helper": "getSubjects",
+      "method": "GET",
+      "path": "/chatbot/process",
+      "private": false,
+      "get_mutation": false,
+      "query": {
+        "subject_id": {
+          "required": true
+        },
+        "project_id": {
+          "fixed": 1
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 118729,
+      "source_excerpt": "getSubjects:function(e,t){return r.Z.getRequest(\"/chatbot/process?subject_id=\".concat(t,\"&project_id=1\"))},"
+    },
+    "get_questions": {
+      "js_helper": "getQuestions",
+      "method": "GET",
+      "path": "/chatbot/process",
+      "private": false,
+      "get_mutation": false,
+      "query": {
+        "question_id": {
+          "required": true
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 118836,
+      "source_excerpt": "getQuestions:function(e,t){return r.Z.getRequest(\"/chatbot/process?question_id=\".concat(t))},"
+    },
+    "save_advert_edit": {
+      "js_helper": "saveAdvertEdit",
+      "method": "POST",
+      "path": "/anunt/save-edit-advert/{advert_id}",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [
+        "advert_id"
+      ],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 118929,
+      "source_excerpt": "saveAdvertEdit:function(e,t,n){return r.Z.postRequest(\"/anunt/save-edit-advert/\".concat(e),t,n)},"
+    },
+    "delete_advert_user": {
+      "js_helper": "deleteAdvertUser",
+      "method": "GET",
+      "path": "/anunt/delete-advert/{advert_id}",
+      "private": true,
+      "get_mutation": true,
+      "query": {},
+      "path_params": [
+        "advert_id"
+      ],
+      "body_schema": null,
+      "source_offset": 119026,
+      "source_excerpt": "deleteAdvertUser:function(e,t){return r.Z.getRequest(\"/anunt/delete-advert/\".concat(e),t)},"
+    },
+    "load_user_statistic": {
+      "js_helper": "loadUserStatistic",
+      "method": "GET",
+      "path": "/user/get-user-statistic",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 119117,
+      "source_excerpt": "loadUserStatistic:function(e){return r.Z.getRequest(\"/user/get-user-statistic\",e)},"
+    },
+    "load_user_review": {
+      "js_helper": "loadUserReview",
+      "method": "GET",
+      "path": "/user/get-user-review",
+      "private": true,
+      "get_mutation": false,
+      "query": {
+        "page": {
+          "required": true
+        },
+        "limit": {
+          "required": true
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 119200,
+      "source_excerpt": "loadUserReview:function(e,t,n){return r.Z.getRequest(\"/user/get-user-review?page=\".concat(e,\"&limit=\").concat(t),n)},"
+    },
+    "upload_verification": {
+      "js_helper": "uploadVerification",
+      "method": "POST",
+      "path": "/user/verification-user",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 119317,
+      "source_excerpt": "uploadVerification:function(e,t){return r.Z.postRequest(\"/user/verification-user\",e,t)},"
+    },
+    "remove_ticket": {
+      "js_helper": "removeTicket",
+      "method": "POST",
+      "path": "/support/ticket/{ticket_id}/close",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [
+        "ticket_id"
+      ],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 119465,
+      "source_excerpt": "removeTicket:function(e,t){return r.Z.postRequest(\"/support/ticket/\".concat(t,\"/close\"),null,e)},"
+    },
+    "get_answers": {
+      "js_helper": "getAnswers",
+      "method": "GET",
+      "path": "/chatbot/process",
+      "private": false,
+      "get_mutation": false,
+      "query": {
+        "answer_id": {
+          "required": true
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 119562,
+      "source_excerpt": "getAnswers:function(e,t){return r.Z.getRequest(\"/chatbot/process?answer_id=\".concat(t))},"
+    },
+    "get_commission_btt": {
+      "js_helper": "getCommissionBTT",
+      "method": "GET",
+      "path": "/commission/list",
+      "private": false,
+      "get_mutation": false,
+      "query": {
+        "coin": {
+          "required": true
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 119651,
+      "source_excerpt": "getCommissionBTT:function(e){return r.Z.getRequest(\"/commission/list?coin=\".concat(e))},"
+    },
+    "set_language": {
+      "js_helper": "setLanguage",
+      "method": "GET",
+      "path": "/user/set-language",
+      "private": true,
+      "get_mutation": true,
+      "query": {
+        "language": {
+          "required": true
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 119739,
+      "source_excerpt": "setLanguage:function(e,t){return r.Z.getRequest(\"/user/set-language?language=\".concat(e),t)},"
+    },
+    "update_login": {
+      "js_helper": "updateLogin",
+      "method": "POST",
+      "path": "/user/update-login",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 119832,
+      "source_excerpt": "updateLogin:function(e,t){return r.Z.postRequest(\"/user/update-login\",e,t)},"
+    },
+    "resend_operation_email": {
+      "js_helper": "resendOperationEmail",
+      "method": "GET",
+      "path": "/account/resend-email/{operation_id}",
+      "private": true,
+      "get_mutation": true,
+      "query": {},
+      "path_params": [
+        "operation_id"
+      ],
+      "body_schema": null,
+      "source_offset": 119908,
+      "source_excerpt": "resendOperationEmail:function(e,t){return r.Z.getRequest(\"/account/resend-email/\".concat(e),t)},"
+    },
+    "add_advert_to_favorites": {
+      "js_helper": "addAdvertToFavorites",
+      "method": "POST",
+      "path": "/user/deal-favorites/add",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 120004,
+      "source_excerpt": "addAdvertToFavorites:function(e,t){return r.Z.postRequest(\"/user/deal-favorites/add\",e,t)},"
+    },
+    "delete_advert_from_favorites": {
+      "js_helper": "deleteAdvertFromFavorites",
+      "method": "POST",
+      "path": "/user/deal-favorites/delete",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 120095,
+      "source_excerpt": "deleteAdvertFromFavorites:function(e,t){return r.Z.postRequest(\"/user/deal-favorites/delete\",e,t)},"
+    },
+    "get_favorites_adverts": {
+      "js_helper": "getFavoritesAdverts",
+      "method": "GET",
+      "path": "/user/deal-favorites/list",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 120194,
+      "source_excerpt": "getFavoritesAdverts:function(e,t){return r.Z.getRequest(\"/user/deal-favorites/list\",e,t)},"
+    },
+    "delete_advert_from_archive": {
+      "js_helper": "deleteAdvertFromArchive",
+      "method": "GET",
+      "path": "/anunt/restore-advert/{advert_id}",
+      "private": true,
+      "get_mutation": true,
+      "query": {},
+      "path_params": [
+        "advert_id"
+      ],
+      "body_schema": null,
+      "source_offset": 120284,
+      "source_excerpt": "deleteAdvertFromArchive:function(e,t){return r.Z.getRequest(\"/anunt/restore-advert/\".concat(e),t)},"
+    },
+    "cancel_withdraw": {
+      "js_helper": "cancelWithdraw",
+      "method": "GET",
+      "path": "/account/cancel-withdraw/{withdraw_id}",
+      "private": true,
+      "get_mutation": true,
+      "query": {},
+      "path_params": [
+        "withdraw_id"
+      ],
+      "body_schema": null,
+      "source_offset": 120383,
+      "source_excerpt": "cancelWithdraw:function(e,t){return r.Z.getRequest(\"/account/cancel-withdraw/\".concat(e),t)},"
+    },
+    "get_user_avatars": {
+      "js_helper": "getUserAvatars",
+      "method": "GET",
+      "path": "/avatar/index-by-auth-user",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 120476,
+      "source_excerpt": "getUserAvatars:function(e){return r.Z.getRequest(\"/avatar/index-by-auth-user\",e)},"
+    },
+    "set_user_avatar": {
+      "js_helper": "setUserAvatar",
+      "method": "POST",
+      "path": "/avatar/set-active-avatar",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 120558,
+      "source_excerpt": "setUserAvatar:function(e,t){return r.Z.postRequest(\"/avatar/set-active-avatar\",{sub_token_id:e},t)},",
+      "known_body_keys": [
+        "sub_token_id"
+      ]
+    },
+    "send_telegram_permission_code": {
+      "js_helper": "sendTelegramPermissionCode",
+      "method": "POST",
+      "path": "/telegram/send-telegram-permission-code",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 120658,
+      "source_excerpt": "sendTelegramPermissionCode:function(e){return r.Z.postRequest(\"/telegram/send-telegram-permission-code\",null,e)},"
+    },
+    "check_telegram_permission_code": {
+      "js_helper": "checkTelegramPermissionCode",
+      "method": "POST",
+      "path": "/telegram/check-telegram-permission-code",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 120771,
+      "source_excerpt": "checkTelegramPermissionCode:function(e,t){return r.Z.postRequest(\"/telegram/check-telegram-permission-code\",e,t)},"
+    },
+    "send_test_message_api": {
+      "js_helper": "sendTestMessageApi",
+      "method": "POST",
+      "path": "/telegram/send-message",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 120885,
+      "source_excerpt": "sendTestMessageApi:function(e,t){return r.Z.postRequest(\"/telegram/send-message\",e,t)},"
+    },
+    "remove_app_token_api": {
+      "js_helper": "removeAppTokenApi",
+      "method": "POST",
+      "path": "/user/remove-app-token",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 120972,
+      "source_excerpt": "removeAppTokenApi:function(e,t){return r.Z.postRequest(\"/user/remove-app-token\",{token_id:e},t)},",
+      "known_body_keys": [
+        "token_id"
+      ]
+    },
+    "remove_all_app_token_api": {
+      "js_helper": "removeAllAppTokenApi",
+      "method": "POST",
+      "path": "/user/remove-all-app-token",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "unknown; explicit caller dictionary",
+      "source_offset": 121069,
+      "source_excerpt": "removeAllAppTokenApi:function(e){return r.Z.postRequest(\"/user/remove-all-app-token\",null,e)},"
+    },
+    "get_cities_list": {
+      "js_helper": "getCitiesList",
+      "method": "GET",
+      "path": "/city/get",
+      "private": false,
+      "get_mutation": false,
+      "query": {
+        "lang": {
+          "default": "en"
+        },
+        "name": {
+          "default": ""
+        }
+      },
+      "path_params": [],
+      "body_schema": null,
+      "source_offset": 121163,
+      "source_excerpt": "getCitiesList:function(){var e=arguments.length>0&&void 0!==arguments[0]?arguments[0]:\"en\",t=arguments.length>1&&void 0!==arguments[1]?arguments[1]:\"\";return r.Z.getRequest(\"/city/get?lang=\".concat(e,\"&name=\").concat(t))}"
+    },
+    "get_accounts": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "GET",
+      "path": "/auth/user",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "response_shape": "auth_user",
+      "description": "Raw API-v2 auth/user payload. account is the P2P wallet list; user and total_usd share this payload. Not the spot wallet endpoint.",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+      "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+      "source_offset": 522690,
+      "source_excerpt": ".then(function(){n(z({url:\"/\",as:\"/\"})),n(S(!1))}):n(S(!1)))}}}return e}).catch(function(e){return e})}};function P(e){return function(e,t){return d.Z.get(\"/auth/user\",{headers:{authorization:\"Bearer \".concat(t().authReducer.token)}}).then(function(t){var n=t.data;return n.user||n.account?(e(k(n.user)),e(E(n.account)),e(C(n.total_usd))):(e(T(null)),e(k({})),c().destroy(null,\"access_token\",{path:\"/\",domain:_.JP})),n}).catch(function(t){return e(T(null)),e(k({})),c().destroy(null,\"access_token\",{path:\"/\",domain:_.JP}),t})}}function M(){var e=!(arguments.length>0)||void 0===arguments[0]||arguments[0],t=arguments.length>1&&void 0!==arguments[1]?arguments[1]:\"\";return function(n){var r;c().destroy(null,\"access_token\",{path:\"/\",domain:_.JP}),c().destroy(null,\"refresh_token\",{path:\"/\",domain:_.JP}),c().destroy(null,\"access\",{path:\"/\",domain:_.JP}),c().destroy(null,\"refresh\",{path:\"/\",domain:_.JP}),c().destroy(null,\"access\",{path:\"/\"}),c().dest",
+      "wallet_usage_evidence": {
+        "url": "https://bit.team/p2p/_next/static/chunks/pages/Cabinet/Wallet-60683eb52b97e281.js",
+        "offset": 11771,
+        "snippet": "rency:this.getCurrency,coinWithImage:e})})]})})})}}]),r}(i.Component),B=(0,l.$j)(function(e){return{accounts:e.authReducer.account,total_usd:e.authReducer.total_usd}})(k),R=n(45114),F=n(11163),W=n.n(F),A=n(62406),E=n(6094),L=n(3859),U=[\"accounts\"],V=function(e){var t=e.accounts,n=(0,c.Z)(e,U),r=n.stateTranslations?n.stateTranslations:n.translations,a=\"\",o=\"\";return r&&(a=r.seo.page_wallet_title,o="
+      },
+      "wallet_fields_observed_in_js": [
+        "currency",
+        "currency_id",
+        "balance",
+        "hold",
+        "currency_data",
+        "token_name",
+        "additional_wallets",
+        "possible_wallets"
+      ],
+      "private_live_verified": false
+    },
+    "get_withdrawal": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "GET",
+      "path": "/transactions/get-withdraw-by-id/{withdraw_id}",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [
+        "withdraw_id"
+      ],
+      "body_schema": null,
+      "description": "Read one existing withdrawal by id; does not create, verify or cancel a withdrawal.",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/6034-f2e976244927be8e.js",
+      "source_sha256": "3b46ec340896bc7fa2673c9b710798220aad5e83fd822515b12c8c027cdec685",
+      "source_offset": 6125,
+      "source_excerpt": ";case 14:case\"end\":return r.stop()}},r,null,[[0,10]])})),function(t,n){return r.apply(this,arguments)}},y=function(t){var r;return r=(0,e.Z)(o().mark(function r(n,e){var a,i,l,p;return o().wrap(function(r){for(;;)switch(r.prev=r.next){case 0:return r.prev=0,a=e().authReducer.token,r.next=4,c.Z.get(\"/transactions/get-withdraw-by-id/\".concat(t),{headers:{authorization:\"Bearer \".concat(a)}});case 4:return i=r.sent,r.abrupt(\"return\",i.data.data);case 8:return r.prev=8,r.t0=r.catch(0),null!==r.t0&&void 0!==r.t0&&null!==(l=r.t0.response)&&void 0!==l&&null!==(l=l.data)&&void 0!==l&&l.errors?(p=r.t0.response.data.errors,(0,s.Z)(p)):u.Am.error((0,h.jsx)(d.Z,{code:\"cabinet.something_went_wrong\"})),r.abrupt(\"return\",{});case 12:case\"end\":return r.stop()}},r,null,[[0,8]])})),function(t,n){return r.apply(this,arguments)}},x=function(t){var r;return r=(0,e.Z)(o().mark(function r(n,e){var a,l,p,f;return o().wrap(function(r){for(;;)switch(r.prev=r.next){case 0:return r.prev=0,a=e().authReducer.token,r",
+      "private_live_verified": false
+    }
+  }
+}

@@ -1,0 +1,219 @@
+{
+  "date": "2026-11-03",
+  "mode": "anonymous-read-only",
+  "rest": [
+    {
+      "method": "get_asset",
+      "ok": true,
+      "shape": "dict",
+      "keys": [
+        "ok",
+        "result"
+      ]
+    },
+    {
+      "method": "get_stats",
+      "ok": false,
+      "http_status": 500,
+      "code": 500000
+    },
+    {
+      "method": "get_currencies",
+      "ok": true,
+      "shape": "dict",
+      "keys": [
+        "ok",
+        "result"
+      ]
+    },
+    {
+      "method": "get_pairs",
+      "ok": true,
+      "shape": "dict",
+      "keys": [
+        "ok",
+        "result"
+      ]
+    },
+    {
+      "method": "get_ccxt_pairs",
+      "ok": true,
+      "shape": "dict",
+      "keys": [
+        "ok",
+        "result"
+      ]
+    },
+    {
+      "method": "get_rates",
+      "ok": true,
+      "shape": "dict",
+      "keys": [
+        "ok",
+        "result"
+      ]
+    },
+    {
+      "method": "get_orders",
+      "ok": true,
+      "shape": "dict",
+      "keys": [
+        "ok",
+        "result"
+      ]
+    },
+    {
+      "method": "get_trades",
+      "ok": true,
+      "shape": "dict",
+      "keys": [
+        "ok",
+        "result"
+      ]
+    },
+    {
+      "method": "get_cmc_assets",
+      "ok": true,
+      "shape": "dict",
+      "keys": [
+        "ATOM",
+        "BIP",
+        "ALTURA",
+        "FLOKI",
+        "BTT",
+        "LTC",
+        "PMS",
+        "FARMS",
+        "VINU",
+        "ZNX",
+        "RUB",
+        "DUSD",
+        "BTC",
+        "PZM",
+        "HRPT"
+      ]
+    },
+    {
+      "method": "get_cmc_summary",
+      "ok": true,
+      "shape": "list",
+      "count": 41
+    },
+    {
+      "method": "get_cmc_ticker",
+      "ok": true,
+      "shape": "dict",
+      "keys": [
+        "RUB_DEL",
+        "DEL_BNB",
+        "LTC_USDT",
+        "DEL_BTC",
+        "ETH_BTC",
+        "DUSD_USDT",
+        "TRX_RUB",
+        "BTC_RUB",
+        "BUSD_USDT",
+        "TRX_USDT",
+        "FLOKI_USDT",
+        "BTT_USDT",
+        "PZM_USDT",
+        "PZM_DEL",
+        "PMS_USDT"
+      ]
+    },
+    {
+      "method": "get_cmc_orderbook_by_pair",
+      "ok": true,
+      "shape": "dict",
+      "keys": [
+        "timestamp",
+        "bids",
+        "asks"
+      ]
+    },
+    {
+      "method": "get_cmc_trades_by_pair",
+      "ok": true,
+      "shape": "list",
+      "count": 1630
+    },
+    {
+      "method": "get_orderbooks_by_symbol",
+      "ok": true,
+      "shape": "dict",
+      "keys": [
+        "ok",
+        "result"
+      ]
+    },
+    {
+      "method": "get_pair_by_name",
+      "ok": true,
+      "shape": "dict",
+      "keys": [
+        "ok",
+        "result"
+      ]
+    },
+    {
+      "method": "get_pairs_precisions",
+      "ok": true,
+      "shape": "dict",
+      "keys": [
+        "ok",
+        "result"
+      ]
+    },
+    {
+      "method": "get_markdown_menu",
+      "ok": false,
+      "http_status": 500,
+      "code": 500000
+    },
+    {
+      "method": "get_altyn_banks",
+      "ok": false,
+      "http_status": 401,
+      "code": 401010
+    },
+    {
+      "method": "get_altyn_client",
+      "ok": false,
+      "http_status": 401,
+      "code": 401010
+    }
+  ],
+  "history": [
+    {
+      "method": "config",
+      "ok": true,
+      "shape": "dict"
+    },
+    {
+      "method": "server_time",
+      "ok": true,
+      "shape": "int"
+    },
+    {
+      "method": "symbol",
+      "ok": true,
+      "shape": "dict"
+    },
+    {
+      "method": "candles",
+      "ok": true,
+      "shape": "list",
+      "count": 96
+    },
+    {
+      "method": "trade_candles",
+      "ok": true,
+      "shape": "list",
+      "count": 1372
+    },
+    {
+      "method": "subscribe_kline_ack",
+      "ok": true
+    }
+  ]
+}

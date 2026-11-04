@@ -1,0 +1,13 @@
+bitteam_sdk/
+├── __init__.py
+├── client.py
+├── rest.py
+├── websocket.py
+├── models.py
+├── charting.py
+├── utils.py
+└── storage/
+    ├── __init__.py
+    ├── base.py
+    ├── sqlite.py
+    └── postgres.py

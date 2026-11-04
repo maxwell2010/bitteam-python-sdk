@@ -1,0 +1,2 @@
+# Install from the package root, or use the standalone wheel.
+-r ../requirements-sdk.txt

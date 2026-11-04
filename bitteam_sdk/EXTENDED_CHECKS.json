@@ -1,0 +1,134 @@
+{
+  "date": "2026-11-03",
+  "public": [
+    {
+      "operation": "site_coins",
+      "ok": true,
+      "shape": "dict"
+    },
+    {
+      "operation": "site_currencies",
+      "ok": true,
+      "shape": "dict"
+    },
+    {
+      "operation": "site_rates",
+      "ok": true,
+      "shape": "dict"
+    },
+    {
+      "operation": "p2p_payment_methods",
+      "ok": true,
+      "shape": "dict"
+    },
+    {
+      "operation": "p2p_adverts",
+      "ok": true,
+      "shape": "dict"
+    },
+    {
+      "operation": "usdt_networks",
+      "ok": true,
+      "shape": "list",
+      "count": 3
+    },
+    {
+      "operation": "prepare_usdt_ERC-20",
+      "ok": true,
+      "shape": "dict"
+    },
+    {
+      "operation": "prepare_usdt_TRC-20",
+      "ok": true,
+      "shape": "dict"
+    },
+    {
+      "operation": "prepare_usdt_BEP-20",
+      "ok": true,
+      "shape": "dict"
+    },
+    {
+      "operation": "l2_recorder_load",
+      "ok": true,
+      "shape": "list",
+      "count": 1
+    },
+    {
+      "operation": "full_day_candles",
+      "ok": true,
+      "shape": "list",
+      "count": 1440
+    },
+    {
+      "operation": "orderbook_push_and_record",
+      "ok": true
+    },
+    {
+      "operation": "news_rest_posts",
+      "ok": true,
+      "count": 2
+    },
+    {
+      "operation": "news_categories",
+      "ok": true,
+      "count": 2
+    },
+    {
+      "operation": "public_order_rows",
+      "ok": true,
+      "count": 2
+    },
+    {
+      "operation": "public_trade_rows",
+      "ok": true,
+      "count": 2
+    }
+  ],
+  "account": [
+    {
+      "operation": "cached_session_restore",
+      "ok": true
+    },
+    {
+      "operation": "balances_subscription_ack",
+      "ok": true,
+      "shape": "AccountSubscription"
+    },
+    {
+      "operation": "orders_subscription_ack",
+      "ok": true,
+      "shape": "AccountSubscription"
+    },
+    {
+      "operation": "user_trades_subscription_ack",
+      "ok": true,
+      "shape": "AccountSubscription"
+    },
+    {
+      "operation": "filtered_open_orders_read",
+      "ok": true,
+      "shape": "dict"
+    },
+    {
+      "operation": "active_notifications_read",
+      "ok": true,
+      "shape": "dict"
+    },
+    {
+      "operation": "refresh_with_stream_reauth",
+      "ok": true,
+      "shape": "LoginResult"
+    },
+    {
+      "operation": "balance_after_refresh",
+      "ok": true,
+      "shape": "dict"
+    },
+    {
+      "operation": "p2p_account_wallets_read",
+      "ok": true,
+      "shape": "dict",
+      "wallet_container": "list"
+    }
+  ]
+}

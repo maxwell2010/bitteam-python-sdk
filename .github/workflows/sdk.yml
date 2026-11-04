@@ -1,0 +1,65 @@
+name: SDK tests and distributions
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      verify_distribution:
+        description: Build distributions and smoke-test the wheel after verification approval
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  sdk:
+    name: ${{ matrix.os }} / Python ${{ matrix.python }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ['3.10', '3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python }}
+          cache: pip
+          cache-dependency-path: |
+            requirements-sdk.txt
+            requirements-sdk-dev.txt
+      - name: Install development dependencies
+        run: python -m pip install -r requirements-sdk-dev.txt
+      # Only the existing real DPAPI roundtrip test is skipped on Linux.
+      # Portable cache tests still run there, using their test protector.
+      - name: Run offline SDK tests
+        run: python -m pytest -c tests_sdk/pytest.ini tests_sdk -ra --junitxml=sdk-test-results.xml
+      - name: Verify only the native DPAPI test can skip
+        run: python scripts_sdk/check_test_skips.py sdk-test-results.xml
+      - name: Build wheel and source distribution
+        if: github.event_name == 'workflow_dispatch' && inputs.verify_distribution
+        run: python -m build --wheel --sdist --outdir dist-sdk-ci
+      - name: Test installed wheel in an isolated environment
+        if: github.event_name == 'workflow_dispatch' && inputs.verify_distribution
+        run: python scripts_sdk/check_wheel.py --dist-dir dist-sdk-ci
+      - name: Archive test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-tests-${{ matrix.os }}-py${{ matrix.python }}
+          path: sdk-test-results.xml
+          if-no-files-found: warn
+      - name: Archive explicitly requested distribution checks
+        if: github.event_name == 'workflow_dispatch' && inputs.verify_distribution && success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sdk-distributions-${{ matrix.os }}-py${{ matrix.python }}
+          path: |
+            dist-sdk-ci/*.whl
+            dist-sdk-ci/*.tar.gz
+          if-no-files-found: error

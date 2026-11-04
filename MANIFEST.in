@@ -1,0 +1,11 @@
+exclude README.md
+include pyproject.toml requirements-sdk.txt requirements-sdk-dev.txt
+recursive-include bitteam_sdk *.py *.md
+include bitteam_sdk/schemas/openapi.json
+recursive-include bitteam_sdk/schemas *.json
+include bitteam_sdk/LIVE_CHECKS.json
+include bitteam_sdk/EXTENDED_CHECKS.json
+recursive-include tests_sdk *.py *.ini
+recursive-include scripts_sdk *.py
+include .github/workflows/sdk.yml
+global-exclude *.db *.env *.log *.pyc

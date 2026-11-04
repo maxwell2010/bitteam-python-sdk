@@ -34,6 +34,7 @@ def ready_auth():
 @pytest.mark.parametrize("replacement", ["session", "keys"])
 async def test_queued_rest_never_sends_old_headers_after_auth_identity_replacement(method, endpoint, replacement):
     auth = ready_auth()
+    original_lifecycle = auth._lifecycle
     rest = BitTeamRestAPI(auth=auth)
     calls = []
     session = SimpleNamespace(request=lambda *args, **kwargs: calls.append(kwargs) or Response())
@@ -42,7 +43,7 @@ async def test_queued_rest_never_sends_old_headers_after_auth_identity_replaceme
     async def replace():
         rest.auth = ready_auth() if replacement == "session" else ApiKeyAuth("synthetic-key", "synthetic-secret")
         if replacement == "session":
-            assert rest.auth._lifecycle == auth._lifecycle
+            assert rest.auth._lifecycle == original_lifecycle
             rest.auth.bind(rest)
 
     rest._limiter.acquire = replace

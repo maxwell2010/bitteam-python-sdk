@@ -66,7 +66,7 @@ async def test_held_p2p_cannot_dispatch_after_rest_owner_auth_replacement(operat
         else:
             with pytest.raises(asyncio.CancelledError):
                 await getattr(held, operation)(**kwargs)
-        assert auth._lifecycle == lifecycle
+        assert auth._lifecycle == lifecycle + 1
         assert held.auth is auth
         assert client.auth is not auth
         assert not held._session.calls

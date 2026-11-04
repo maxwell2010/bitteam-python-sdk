@@ -412,8 +412,9 @@ independent review passed. No real user cache was loaded, modified or recovered.
 
 REST.auth replacement is now an explicit boundary: validates/binds the new
 strategy, cancels old tracked work, retires the old HTTP session and creates a
-fresh session/jar for the replacement. It does not copy cookies, change A's
-lifecycle as a substitute for identity checking, or delete A/B caches. A fake
+fresh session/jar for the replacement. It does not copy cookies or delete A/B
+caches. The final epoch review also increments the detached auth's lifecycle,
+in addition to identity checks, to prevent A-to-B-to-A resurrection. A fake
 response deliberately ignored first cancellation and applied a late Set-Cookie:
 it remained in retired jarA, never jarB. The old session is closed through shared
 shielded retirement work. Independent tests reproduced cancellation losing a
@@ -469,7 +470,7 @@ access were used to remove those boundaries. No versions, builds, artifacts,
 tags, releases, publications or real financial/account operations were performed.
 
 
-## Final local verification for this audit report
+## Pre-epoch local verification for this audit report
 
 Configured Linux Python3.12.14 environment: **1271 passed, 1 native Windows
 DPAPI skip**,1272collected; check_test_skips passed. This includes all confirmed
@@ -487,3 +488,29 @@ passed with zero fake dispatch on mismatch). No actual mutation was exercised.
 An integration fixture was updated to the proven data.id response shape, not
 used to relax the production response contract. Counts are not proof that all
 SDK errors or website/API functionality have been covered.
+
+
+## Final targeted owner epoch check and report status
+
+The last reviewer asked whether A -> B -> A could restore identity while the
+old lifecycle remained current. It was independently reproduced: a tracked
+fake HTTP operation deliberately suppressed cancellation and returned a late
+reply; held buffered/waiting account subscriptions also revived on the old
+identity. Initial regressions: HTTP2failed/1passed, account subscriptions3failed.
+This was a confirmed missing epoch boundary, not a speculative change.
+
+Successful detach now increments the previous SessionAuth lifecycle before
+canceling its pending operations. It does not call clear, delete cache, copy
+cookies, alter tokens/READY-state or reset generation. Identity guards remain
+in place. Old operations/subscriptions cannot revive after A -> B -> A; fresh
+requests, refresh and new subscriptions on explicitly returned A use its current
+epoch and pass. Same-object auth assignment and ordinary same-owner refresh
+remain allowed. Invalid replacement is validated before changing the old epoch.
+Six new regression cases and independent related owner checks passed.
+
+**Final full cloud suite: 1277 passed, 1 native Windows DPAPI skip; 1278
+collected, Linux Python3.12.14. check_test_skips passed.** The earlier1271 count
+is the pre-epoch snapshot. No new directions were added after this targeted
+check. Final exact SHA and CI run/status are recorded in draft PR#1; an external
+queued run is pending, never reported as success. No versions, builds, tags,
+releases, publications, real cache/session access or financial/account calls.

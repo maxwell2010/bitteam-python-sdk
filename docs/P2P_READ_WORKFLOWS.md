@@ -166,3 +166,11 @@ concurrent close waits for it, and failed closure remains an error to later
 callers. No old cookies are copied into the replacement owner's session.
 These mechanisms were checked with real REST/client objects and fake RAM
 transports/cache plus the existing local HTTPS suite, not a BitTeam account.
+
+
+Final epoch boundary: successful REST auth detach increments the old auth
+lifecycle as well as canceling work and retiring its jar. A -> B -> A cannot
+make an old cancellation-immune reply or held subscription current again.
+Returned A may issue fresh requests/refresh/subscriptions in its new epoch;
+ordinary same-owner refresh/assignment remains allowed. Tokens, cache and
+generation are not cleared by detach and no old jar is copied.

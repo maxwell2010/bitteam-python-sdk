@@ -43,7 +43,7 @@ async def test_held_archive_rejects_replaced_real_owner_before_any_await(method,
         with pytest.raises(asyncio.CancelledError):
             await getattr(archive, method)()
         assert not entered and not session.calls
-        assert original._lifecycle == before and original.state == AuthState.READY
+        assert original._lifecycle == before + 1 and original.state == AuthState.READY
     finally:
         await client.close()
 

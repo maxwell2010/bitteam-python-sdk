@@ -33,6 +33,11 @@ class BitTeamRestAPI:
                 value.bind(self)
             self._allowed_origins = origins
         if previous is not None:
+            if isinstance(previous, SessionAuth):
+                # Identity alone can become equal again after A -> B -> A.
+                # Retire the old epoch without clearing tokens or cache so
+                # newly issued work can use an explicitly returned auth A.
+                previous._lifecycle += 1
             try:
                 current = asyncio.current_task()
             except RuntimeError:

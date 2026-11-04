@@ -20,8 +20,8 @@ python -m pytest -c tests_sdk/pytest.ini tests_sdk -ra --junitxml=work/sdk-test-
 python scripts_sdk/check_test_skips.py work/sdk-test-results.xml
 ```
 
-Последний полный локальный результат: **1271 passed, 1 native Windows DPAPI
-skip**, 1272 collected, Linux Python 3.12.14; skip audit прошёл.
+Последний полный локальный результат: **1277 passed, 1 native Windows DPAPI
+skip**, 1278 collected, Linux Python 3.12.14; skip audit прошёл.
 Обычный sandbox запрещает локальные sockets; для HTTPS-фикстур нужен только
 доступ исполнителя к локальным тестовым сокетам, без расширения HTTP allowlist.
 Точный финальный SHA/run/наблюдённый статус CI записываются в описании PR после
@@ -64,3 +64,12 @@ probes дали timeouts/HTML502, не постоянную недоступно
 transaction.id, blockchain finality, journal retention и replay. Подробная
 матрица, источники и red/green: docs/TEST_GAPS.md, SITE_INVENTORY.md,
 WITHDRAWAL_TRACKING.md и docs/P2P_READ_WORKFLOWS.md.
+
+
+Последний targeted epoch review: A -> B -> A действительно оживлял старые
+ответы/подписки при неизменном lifecycle. Успешный detach теперь увеличивает
+lifecycle прежнего SessionAuth до cancel, не очищая token/cache/generation и
+не копируя jar. Identity guards сохранены; fresh запросы/refresh/подписки
+вернувшегося A допустимы в новой эпохе. Шесть новых регрессий и независимый
+review прошли. Финальный полный результат1277passed1DPAPI skip, skip auditpassed.
+После этого новых направлений нет. CIqueued снаружи указыватьpending, неsuccess.

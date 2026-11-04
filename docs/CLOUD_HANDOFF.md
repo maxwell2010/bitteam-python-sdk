@@ -32,3 +32,5 @@ CI на Windows/Linux Python3.10-3.13 прошёл, run41847439819. Исходн
 Продолжайте исправлять только воспроизводимые ошибки с независимыми регрессиями и обновляйте матрицу evidence. Не объявляйте отсутствие всех ошибок по количеству тестов.
 
 Cloud continuation fixes: account-bound private polling/pagination and archive responses, transaction-id validation, bounded WebSocket sends/handshakes, reconnect gap ordering. See docs/TEST_GAPS.md for synthetic evidence and outstanding live limits.
+
+Исправления code commit 5f65dca прошли PR CI run 41853806810: все 8 Windows/Linux Python3.10-3.13 jobs success, pytest и skip audit success; build/wheel smoke skipped. Это наблюдение относится к code commit, а не к следующей записи документации. Draft PR: https://github.com/maxwell2010/bitteam-python-sdk/pull/1; не merge автоматически.

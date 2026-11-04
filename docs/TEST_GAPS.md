@@ -180,7 +180,7 @@ Priority remaining validation: Windows/Linux 3.10-3.13 CI for new changes, insta
 | Initial main 8215216, Linux Python 3.12.14, configured venv | 706 passed, 1 native DPAPI skip; check_test_skips passed | Synthetic suite, including local HTTPS; no account calls |
 | Sandbox-only baseline attempt | Local TCP bind denied; interrupted after stalled recorder test | Environment restriction, not SDK success; repeated with local socket access |
 | Historical GitHub run [41847439819](https://github.com/maxwell2010/bitteam-python-sdk/actions/runs/41847439819) | Eight jobs success, Windows/Linux Python 3.10-3.13; pytest and skip audit success | Prior main; build/wheel steps skipped |
-| Final cloud suite | 752 passed, 1 native DPAPI skip; check_test_skips passed | Linux Python 3.12.14, 753 collected; new branch CI checked separately below |
+| Final cloud suite | 752 passed, 1 native DPAPI skip; check_test_skips passed | Linux Python 3.12.14, 753 collected; code commit 5f65dca CI also passed (see below) |
 | Archive lifecycle regressions | Initial four tests failed before fix; auth-replacement follow-up also failed before fix; final seven cases pass | Synthetic auth and fake transport only |
 | Private read / polling / pagination regressions | 33 new cases; initial red runs reproduced account-boundary and identifier defects; 139 related tests passed | Session replacement/logout invalidates reads, buffered rows and subsequent pages; same-session refresh allowed |
 | Stream regressions | Initial five cases failed; six final cases and 103 related tests passed | Blocked send/handshake timeout, public/private reconnect gap; no live replay evidence |
@@ -188,3 +188,5 @@ Priority remaining validation: Windows/Linux 3.10-3.13 CI for new changes, insta
 No public exchange probes were made: the configured HTTP allowlist does not include BitTeam hosts. No secrets, removed session caches, account endpoints, financial operations, code delivery, builds, tags or releases were used. Account delivery/expiry, financial outcomes, terminal withdrawal statuses, orderId-to-transaction.id mapping and replay remain unverified.
 
 Independent agents cross-reviewed read/archive and stream changes and reran the other area’s synthetic regressions. New tests: test_read_lifecycle_review.py (33), test_cloud_stream_review.py (6), test_cloud_archive_review.py (7). Coverage percentages above belong to the previous audit and were not recomputed.
+
+Code commit `5f65dca`: PR CI [run 41853806810](https://github.com/maxwell2010/bitteam-python-sdk/actions/runs/41853806810) inspected through GitHub API: all eight Windows/Linux Python 3.10-3.13 jobs completed successfully; pytest and skip audit succeeded in each. Distribution build/smoke/upload steps were skipped. This evidence applies to that code commit; this subsequent documentation-only record does not claim a separately observed CI result.

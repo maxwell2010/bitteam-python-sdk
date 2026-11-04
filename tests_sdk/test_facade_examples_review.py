@@ -68,7 +68,7 @@ def test_readme_offline_examples_run_without_http(monkeypatch):
     monkeypatch.setattr(aiohttp, "ClientSession", forbidden)
     monkeypatch.setattr(socket, "create_connection", forbidden)
     root = Path(__file__).resolve().parents[1]
-    readme = (root / "README.md").read_text()
+    readme = (root / "README.md").read_text(encoding="utf-8")
     blocks = re.findall(r"```python\n(.*?)```", readme, re.S)
     assert blocks
     for block in blocks:

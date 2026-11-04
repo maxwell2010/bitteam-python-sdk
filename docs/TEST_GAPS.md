@@ -594,3 +594,10 @@ Final full offline/default suite: **1362 passed, 1 native DPAPI skip**,
 1363 collected, Linux Python3.12.14; skip audit passed. Runtime PostgreSQL checks
 are separate actual-service checks, not hidden skips or mock passes. Exact-SHA
 GitHub CI must be reported separately from these local results.
+
+Exact-head CI at 0e25d0c passed all four Linux matrix jobs, actual PostgreSQL
+and core source smoke. Windows exposed a test portability defect: README was
+read with the platform default cp1252, raising UnicodeDecodeError. The offline
+README regression now explicitly reads UTF-8, matching the tracked document.
+This is a test correction, not a disabled Windows check. Final replacement SHA
+and CI outcome are recorded in draft PR #1.

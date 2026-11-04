@@ -98,3 +98,7 @@ Final targeted real-PG two-pool retention=1 barrier test did not reproduce the
 race with current advisory serialization; different-key parallelism and cancel
 recovery passed. Standalone runtime:12 checks passed; full pytest:1362 passed,
 1 nativeDPAPI skip, skip audit passed. Core-only source smoke passed, not wheel.
+
+CI at0e25d0c passed Linux4+PG+core; Windows found README-test default-codepage
+UnicodeDecodeError. Explicit UTF-8 read fixes the test; Windows checks stay
+unconditional. See PR for replacement SHA and actual final CI status.

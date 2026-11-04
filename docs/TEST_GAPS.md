@@ -510,7 +510,36 @@ Six new regression cases and independent related owner checks passed.
 
 **Final full cloud suite: 1277 passed, 1 native Windows DPAPI skip; 1278
 collected, Linux Python3.12.14. check_test_skips passed.** The earlier1271 count
-is the pre-epoch snapshot. No new directions were added after this targeted
-check. Final exact SHA and CI run/status are recorded in draft PR#1; an external
+is the pre-epoch snapshot. The later user-requested spot-selector correction is recorded separately
+below; it adds no network mapping. Final exact SHA and CI run/status are recorded in draft PR#1; an external
 queued run is pending, never reported as success. No versions, builds, tags,
 releases, publications, real cache/session access or financial/account calls.
+
+
+## Final spot withdrawal selector correction
+
+User-reported production-helper reproduction used only a synthetic catalog:
+USDT id3, active=true/status1, limits1..100, Ethereum+Arbitrum, amount2 and a
+synthetic destination. Arbitrum's presence in that fixture is not an exchange
+support claim. The old prepare_withdrawal returned an Arbitrum plan without
+any currency selector. Multi-network non-USDT choices likewise produced the
+same indistinguishable payload when only currencyId was known.
+
+The pure planner now fails closed if USDT has no established request_currency
+mapping (even if it is the sole catalog link), or if a multi-network non-USDT
+choice has no proven selector. withdrawal_networks may still expose unknown
+chains as metadata with request_currency/withdraw_enabled unset. No arb,
+baseSymbol, new network parameter or new chain support is invented. The three
+observed USDT eth/trx/bnb mappings and single-native chain behavior remain.
+
+Red:4failed/5passed pure regressions;8failed/1passed real-client fake-dispatch
+cases across SessionAuth/API-key and both request_network_withdrawal and
+create_withdrawal. Green:60 related cases, independently cross-reviewed;
+unsupported selections cause zero fake POSTs. Only synthetic catalog GETs
+were used by composite tests, with all HTTP replaced by fakes.
+
+**Final local suite after this correction:1295passed,1nativeDPAPI skip,
+1296collected, Linux Python3.12.14; check_test_skips passed.** Previous1277 is
+the pre-selector snapshot. Exact updated head and observed CI status remain
+in draft PR#1 description; externally queued jobs are pending, not success.
+User cache, account/financial operations, versions/builds/releases untouched.

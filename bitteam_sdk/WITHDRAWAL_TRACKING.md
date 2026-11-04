@@ -73,3 +73,7 @@ cancelled/created/confirmed/done для-1/0/1/2. TransactionEvidence.ui_state
 Это метки интерфейса, не exhaustivebackendenum и не blockchainfinality.
 Фиксированные журналы имеют доказанное export-окно page1/limit999 и типы
 amount/system; общая пагинация/retention/полнота истории не доказаны.
+
+## Spot: metadata не заменяет request selector
+
+Неизвестная сеть может отображаться в withdrawal_networks, но prepare_withdrawal отклоняет USDT без установленного request_currency и multi-network non-USDT без доказанного selector. Иначе выбранные сети могли породить одинаковый payload с одним currencyId. Подтверждённые USDT eth/trx/bnb и single-native chain сохранены; новые сети/arb/baseSymbol не добавлены. Arbitrum в новых регрессиях - только synthetic catalog, не утверждение поддержки биржей. Проверка не выполняла реальный вывод.

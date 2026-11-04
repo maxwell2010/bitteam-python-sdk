@@ -90,6 +90,11 @@ def prepare_withdrawal(currencies, symbol, *, amount, address, network=None, cur
         selected = matches[0]
     if not selected.catalog_active:
         raise ValueError("Currency is inactive in the spot catalog")
+    # A catalog link is display metadata, not a proven request selector.
+    # USDT requires its observed chain selector even for a single catalog link;
+    # other multi-network rows cannot be distinguished by currencyId alone.
+    if selected.request_currency is None and (selected.symbol == "USDT" or len(choices) > 1):
+        raise ValueError("No verified request selector for the selected withdrawal network")
     if currency_id is not None and currency_id != selected.currency_id:
         raise ValueError("currency_id does not match the spot currency; P2P ids are not interchangeable")
     quantity = decimal_value(amount)

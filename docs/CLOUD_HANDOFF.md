@@ -20,8 +20,8 @@ python -m pytest -c tests_sdk/pytest.ini tests_sdk -ra --junitxml=work/sdk-test-
 python scripts_sdk/check_test_skips.py work/sdk-test-results.xml
 ```
 
-Последний полный локальный результат: **1277 passed, 1 native Windows DPAPI
-skip**, 1278 collected, Linux Python 3.12.14; skip audit прошёл.
+Последний полный локальный результат: **1295 passed, 1 native Windows DPAPI
+skip**, 1296 collected, Linux Python 3.12.14; skip audit прошёл.
 Обычный sandbox запрещает локальные sockets; для HTTPS-фикстур нужен только
 доступ исполнителя к локальным тестовым сокетам, без расширения HTTP allowlist.
 Точный финальный SHA/run/наблюдённый статус CI записываются в описании PR после
@@ -72,4 +72,6 @@ lifecycle прежнего SessionAuth до cancel, не очищая token/cach
 не копируя jar. Identity guards сохранены; fresh запросы/refresh/подписки
 вернувшегося A допустимы в новой эпохе. Шесть новых регрессий и независимый
 review прошли. Финальный полный результат1277passed1DPAPI skip, skip auditpassed.
-После этого новых направлений нет. CIqueued снаружи указыватьpending, неsuccess.
+Поздняя точечная spot-selector correction описана ниже. CIqueued снаружи указыватьpending, неsuccess.
+
+Spot-selector correction: неизвестный USDT selector и multi-network non-USDT без доказанного selector отклоняются planner-ом до submit. Метаданные каталога доступны; новые сети/arb/baseSymbol не добавлены. Три подтверждённых USDT mapping и single-native сохранены. Финальный full1295passed1nativeDPAPI skip, skip audit passed;18новых pure/fake-dispatch регрессий, независимый review. CI нового head при внешнем queued отмечать pending.

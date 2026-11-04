@@ -63,6 +63,8 @@ class BitTeamP2PAPI:
         cookie = session.cookie_jar.filter_cookies(URL(self.BASE_URL)).get("access_token")
         if cookie is None or not cookie.value:
             raise AuthenticationError(401)
+        if self.auth._general_token_rejected(cookie.value):
+            raise AuthenticationError(401)
         return cookie.value
 
     async def call(self, operation, *, path=None, params=None, data=None):
@@ -111,43 +113,80 @@ class BitTeamP2PAPI:
                 if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
                     raise ValueError(f"Invalid {key}")
         headers = {"Accept": "application/json", "Accept-Language": self.locale}
+        auth, lifecycle, token = self.auth, None, None
         if entry["private"]:
-            headers["Authorization"] = "Bearer " + self._general_token()
+            token = self._general_token()
+            lifecycle = auth._lifecycle
+            headers["Authorization"] = "Bearer " + token
+
+        def assert_current():
+            if self._closed:
+                raise RuntimeError("P2P client is closed")
+            if entry["private"]:
+                if self.auth is not auth:
+                    raise asyncio.CancelledError("Authentication operation was invalidated")
+                auth._assert_lifecycle(lifecycle)
+                if auth._transport is None or getattr(auth._transport, "_closed", False):
+                    raise AuthenticationError(401)
+
         session = await self._get_session()
         await self._limiter.acquire()
-        if self._closed:
-            raise RuntimeError("P2P client is closed")
+        assert_current()
         if entry["private"]:
             # A queued request must not retain a token across logout/close.
-            headers["Authorization"] = "Bearer " + self._general_token()
-        try:
-            # No retries and no redirects, even for GET: several GET routes
-            # accept trades, send coins, cancel withdrawals or alter settings.
-            async with session.request(entry["method"], self.BASE_URL + route,
-                                       params=params or None, json=data, headers=headers,
-                                       allow_redirects=False) as response:
-                try:
-                    payload = await response.json()
-                except (ValueError, aiohttp.ContentTypeError):
-                    raise BitTeamAPIError(response.status if response.status >= 300 else 502) from None
-                if not isinstance(payload, dict):
-                    raise BitTeamAPIError(502)
-                if (not 200 <= response.status < 300 or payload.get("status") is False
-                        or payload.get("ok") is False or payload.get("errors")):
-                    raise BitTeamAPIError(response.status, payload.get("code"))
-                if entry.get("response_shape") == "auth_user":
-                    if not isinstance(payload.get("account"), list):
+            token = self._general_token()
+            headers["Authorization"] = "Bearer " + token
+        async def send_once():
+            nonlocal token
+            # Tracking schedules a task; account replacement may happen before
+            # that task starts, so guard the actual dispatch as well.
+            assert_current()
+            if entry["private"]:
+                token = self._general_token()
+                headers["Authorization"] = "Bearer " + token
+            try:
+                # No retries and no redirects, even for GET: several GET routes
+                # accept trades, send coins, cancel withdrawals or alter settings.
+                async with session.request(entry["method"], self.BASE_URL + route,
+                                           params=params or None, json=data, headers=headers,
+                                           allow_redirects=False) as response:
+                    try:
+                        payload = await response.json()
+                    except (ValueError, aiohttp.ContentTypeError):
+                        assert_current()
+                        if entry["private"] and response.status == 401:
+                            auth._reject_general_token(token)
+                            raise AuthenticationError(401) from None
+                        raise BitTeamAPIError(response.status if response.status >= 300 else 502) from None
+                    assert_current()
+                    if entry["private"] and response.status == 401:
+                        # General renewal is not established by the saved frontend
+                        # contract. Never call spot refresh or replay a mutation.
+                        auth._reject_general_token(token)
+                        raise AuthenticationError(401)
+                    if not isinstance(payload, dict):
                         raise BitTeamAPIError(502)
-                    if "user" in payload and not isinstance(payload["user"], dict):
+                    if (not 200 <= response.status < 300 or payload.get("status") is False
+                            or payload.get("ok") is False or payload.get("errors")):
+                        raise BitTeamAPIError(response.status, payload.get("code"))
+                    if payload.get("code", 200) != 200:
                         raise BitTeamAPIError(502)
-                elif (payload.get("status") is not True or "data" not in payload
-                      or payload.get("code", 200) != 200):
-                    raise BitTeamAPIError(502)
-                return payload
-        except asyncio.TimeoutError:
-            raise asyncio.TimeoutError("P2P request timed out; operation was not retried") from None
-        except aiohttp.ClientError:
-            raise BitTeamAPIError(0) from None
+                    if entry.get("response_shape") == "auth_user":
+                        if not isinstance(payload.get("account"), list):
+                            raise BitTeamAPIError(502)
+                        if "user" in payload and not isinstance(payload["user"], dict):
+                            raise BitTeamAPIError(502)
+                    elif payload.get("status") is not True or "data" not in payload:
+                        raise BitTeamAPIError(502)
+                    return payload
+            except asyncio.TimeoutError:
+                raise asyncio.TimeoutError("P2P request timed out; operation was not retried") from None
+            except aiohttp.ClientError:
+                raise BitTeamAPIError(0) from None
+
+        if entry["private"]:
+            return await auth._tracked_operation(send_once())
+        return await send_once()
 
     async def close(self):
         if not self._closed:

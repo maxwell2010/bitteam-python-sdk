@@ -50,3 +50,7 @@ UI строит ссылку обозревателя из links[].tx и params.
 ## P2P: статус 1 означает ожидание
 
 Публичный компонент https://bit.team/p2p/_next/static/chunks/pages/Cabinet/Transaction-eb8de68add8165df.js для type=withdraw отображает -1 как cancelled, 0 как created, 1 как expect; остальные значения показывает success. Это UI mapping, не полный серверный enum: неизвестные значения нельзя автоматически принимать за успех. Детали используют id,type,status,created,sum,percent,coin. Хеш транзакции в этом компоненте не найден. Status=1 для P2P-вывода не является подтверждением завершения.
+
+## Read-only P2P snapshot
+
+client.inspect_p2p_withdrawal(existing_p2p_id) читает только доказанный payload.data. Requested ID и record ID доступны отдельно; неизвестный статус не означает успех. client.get_p2p_accounts() сохраняет account/user/total_usd без догадок о типах и валютах. Источники и offline-границы: docs/P2P_READ_WORKFLOWS.md.

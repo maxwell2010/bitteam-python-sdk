@@ -190,3 +190,72 @@ No public exchange probes were made: the configured HTTP allowlist does not incl
 Independent agents cross-reviewed read/archive and stream changes and reran the other area’s synthetic regressions. New tests: test_read_lifecycle_review.py (33), test_cloud_stream_review.py (6), test_cloud_archive_review.py (7). Coverage percentages above belong to the previous audit and were not recomputed.
 
 Code commit `5f65dca`: PR CI [run 41853806810](https://github.com/maxwell2010/bitteam-python-sdk/actions/runs/41853806810) inspected through GitHub API: all eight Windows/Linux Python 3.10-3.13 jobs completed successfully; pytest and skip audit succeeded in each. Distribution build/smoke/upload steps were skipped. This evidence applies to that code commit; this subsequent documentation-only record does not claim a separately observed CI result.
+
+
+## Second cloud continuation: contract and independent audit
+
+At start, GitHub API confirmed PR #1 open/draft, merged=false, head
+`1e46568aebfaf7109e349e50727f0bbe5ed06e8a`, branch
+`fix/cloud-lifecycle-timeouts`; remote branch and pull ref matched.
+Run [41854178833](https://github.com/maxwell2010/bitteam-python-sdk/actions/runs/41854178833)
+completed all eight Windows/Linux Python3.10-3.13 jobs successfully, pytest and
+skip audit included; builds were skipped. This is start-state evidence.
+
+| Direction | Implemented and checked offline | Remaining evidence boundary |
+|---|---|---|
+| P2P account/withdrawal read scenarios | Typed snapshots, client facades, exact frontend payload.data extraction, detached raw fields, redacted repr, separate requested/record IDs, conservative statuses | Saved source excerpts and provenance hashes; no current bundle refetch or account call; no financial outcome or full wallet schema |
+| General API-v2 auth expiry | Missing/expired/rejected cookie fails, private HTTP401 typed auth error, no spot refresh or mutation retry, bounded hash-only rejection memory, lifecycle/identity guards and tracked cancellation | No proven general refresh endpoint/method/payload/rotation or live expiry/revocation experiment; cookie names do not prove renewal |
+| Market/history integrity | Malformed history result becomes APIError502; boolean/fractional/nonfinite trade timestamps rejected; exact candle volume/order remainder independent of ambient decimal context | Pathological decimal precision above10000 fails explicitly; no additional server status/OHLC/replay guarantees |
+| Priority P2P account-boundary checks | Queue during A->logout/login B prevents mutating GET/POST dispatch; identity/owner close, late JSON, same-session refresh and in-flight invalidation tested | Fake cookies, transports and responses only; no mutations actually sent to exchange |
+| Priority REST auth identity | Same lifecycle on replacement auth does not authorize stale headers; capture identity through dispatch, limiter/session/JSON, retry and refresh | Five original regressions failed before fix; real REST orchestration with fake HTTP session only |
+| Extensible withdrawal composite guard | Overridden prepare helper crossing lifecycle/close fails before mocked submit; same-session refresh allowed | Does not establish a stock public-GET race. Existing tracked sends already cancel stock network_withdrawal/create_order/get_user_orders(pair) when lifecycle changes during the public GET; three preservation regressions cover that behavior |
+
+See [P2P_READ_WORKFLOWS.md](P2P_READ_WORKFLOWS.md) for exact saved provenance,
+read-only examples and the general renewal investigation. No new public
+BitTeam live reads were performed: exchange/frontend hosts are not in the
+executor allowlist, and no alternate route was used. Historical live rows
+above remain historical, not reconfirmed. No real secrets, restored caches,
+account/financial operations, codes, versions, tags, distributions or releases.
+
+
+### Independently supplied local evidence (2026-11-04)
+
+Provenance: the user relayed a local reviewer and an external coordinator's
+observations in this chat. These were not executed by this cloud environment,
+no local output files were supplied, and no independent raw probe log was
+inspected here. They are reported evidence, separate from cloud-observed tests.
+
+The local reviewer used the production P2P call implementation with a fake
+limiter/response, without network or files. `change_status_all` began in account
+A; changing lifecycle and cookie to B during limiter.acquire led to an actual
+FakeSession.request with Bearer B. A late response.json returned A's payload
+after the switch to B. The new synthetic regressions include this exact
+mutating helper, plus other mutating GET/POST paths, identity and close cases.
+
+External coordinator public-only probes used no cookies/auth, TLS certifi,
+redirects=false and an 8-second deadline per request:
+
+| Public GET from local host | Reported result | What it does not establish |
+|---|---|---|
+| https://bitteam-market-back.bit.team/api/cryptocurrency/map | TimeoutError | Permanent unavailability or valid backend schema |
+| https://bitteam-market-back.bit.team/api/core/common/cryptos | TimeoutError | Permanent unavailability or valid backend schema |
+| https://docs-api.bit.team/api/v1/pages | HTTP502, text/html | Persistent failure or valid JSON contract |
+| https://archive.bit.team/api/trades?limit=1&offset=0 | TimeoutError | Permanent unavailability, pagination semantics or parameter correctness |
+
+No private/financial endpoint was called in those probes; results were not
+saved to local files. These reported current failures supplement historical
+matrix rows without converting them into successful live verification.
+
+
+Final cloud verification for this continuation: Linux Python3.12.14 in the
+configured /workspace/venvs/bitteam-sdk environment, full suite 853 passed,
+1 native Windows DPAPI skip (854 collected), check_test_skips passed.
+101 new tests in this continuation: P2P workflows31, facade1, auth38,
+deep market16, REST auth identity9, withdrawal orchestration6. Counts describe
+local synthetic coverage, not absence of errors or production API coverage.
+Initial REST auth identity regressions gave5failed/1passed; after fixes the
+nine-case suite passed, including task scheduling, retry and refresh boundaries.
+The production code and related regressions were independently cross-reviewed
+by agents; network probes supplied by the user retain the separate provenance
+above. New CI must be observed for the pushed commit, not inferred from this
+local run or prior successful jobs.

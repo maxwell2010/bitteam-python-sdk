@@ -36,6 +36,16 @@ def rows(payload, key):
 
 
 class ServiceMethods:
+    async def get_p2p_accounts(self):
+        """Read API-v2 account rows without inferring spot wallet semantics."""
+        from .p2p_workflows import read_p2p_accounts
+        return await read_p2p_accounts(self)
+
+    async def inspect_p2p_withdrawal(self, identifier):
+        """Inspect an existing P2P withdrawal; never create or confirm one."""
+        from .p2p_workflows import inspect_p2p_withdrawal
+        return await inspect_p2p_withdrawal(self, identifier)
+
     async def get_withdrawal_record(self, identifier, *, source):
         from .withdrawal_tracking import read_withdrawal
         return await read_withdrawal(self, identifier, source=source)
@@ -81,7 +91,10 @@ class ServiceMethods:
 
     async def request_network_withdrawal(self, symbol, *, amount, address, network=None):
         self._require_ready()
+        guard = private_read_guard(self)
         plan = await self.prepare_withdrawal(symbol, amount=amount, address=address, network=network)
+        guard()
+        self._require_ready()
         return await self.rest._request("POST", "/withdraw/create" if self.rest._session_mode else "/ccxt/withdraw", data=plan["payload"])
 
     async def get_withdrawal_permission(self, currency_id):

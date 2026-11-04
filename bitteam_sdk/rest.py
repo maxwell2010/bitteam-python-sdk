@@ -71,17 +71,25 @@ class BitTeamRestAPI:
         self._session.cookie_jar.update_cookies(cookies, response_url=URL(self.base_url))
 
     async def _send(self, method, url, *, params=None, data=None, headers=None):
+        auth = self.auth
+        lifecycle = auth._lifecycle if isinstance(auth, SessionAuth) else None
+        def assert_current():
+            self._assert_request_auth(auth, lifecycle)
         target = URL(url)
         if target.origin() not in self._allowed_origins or target.user is not None:
             raise ValueError("Request origin is not configured for this client")
         await self._limiter.acquire()
+        assert_current()
         session = await self._get_session()
+        assert_current()
         async with session.request(method, target, params=params, json=data,
                                    headers=headers or {}, allow_redirects=False) as response:
             try:
                 result = await response.json()
             except (ValueError, aiohttp.ContentTypeError):
+                assert_current()
                 raise BitTeamAPIError(response.status) from None
+            assert_current()
             if response.status >= 300 or (isinstance(result, dict) and result.get("ok") is False):
                 error = AuthenticationError if response.status == 401 else BitTeamAPIError
                 retry_after = None
@@ -105,20 +113,35 @@ class BitTeamRestAPI:
     def _get_auth_header(self):
         return self.auth.headers()
 
+    def _assert_request_auth(self, auth, lifecycle):
+        if self._closed:
+            raise RuntimeError("Client is closed")
+        if self.auth is not auth:
+            raise asyncio.CancelledError("Authentication operation was invalidated")
+        if isinstance(auth, SessionAuth):
+            auth._assert_lifecycle(lifecycle)
+
     async def _request(self, method, endpoint, params=None, data=None, *, public=False):
         if not endpoint.startswith("/") or endpoint.startswith("//"):
             raise ValueError("Expected a relative API endpoint")
-        generation = self.auth.generation if self._session_mode else None
-        headers = {} if public else self._get_auth_header()
+        auth = self.auth
+        session_mode = isinstance(auth, SessionAuth)
+        generation = auth.generation if session_mode else None
+        headers = {} if public else auth.headers()
         # Public responses share the session cookie jar too. Cancel every HTTP
         # exchange on an account boundary, including anonymous market reads.
-        lifecycle = self.auth._lifecycle if self._session_mode else None
+        lifecycle = auth._lifecycle if session_mode else None
         async def exchange(request_headers):
-            if self._session_mode:
-                self.auth._assert_lifecycle(lifecycle)
-                return await self.auth._tracked_send(
-                    method, self.base_url + endpoint, params=params, data=data, headers=request_headers)
-            return await self._send(method, self.base_url + endpoint, params=params, data=data, headers=request_headers)
+            async def dispatch():
+                self._assert_request_auth(auth, lifecycle)
+                result = await self._send(method, self.base_url + endpoint,
+                    params=params, data=data, headers=request_headers)
+                self._assert_request_auth(auth, lifecycle)
+                return result
+            self._assert_request_auth(auth, lifecycle)
+            if session_mode:
+                return await auth._tracked_operation(dispatch())
+            return await dispatch()
         safe_read = (method.upper() == "GET" and not endpoint.endswith("/create")
             and not endpoint.startswith(("/login-confirmation", "/phone/checkValidation", "/sumsub/obtain", "/forgot-2fa")))
         async def send():
@@ -137,11 +160,12 @@ class BitTeamRestAPI:
         except BitTeamAPIError as exc:
             # Retry one read on an explicit expired-token response. Never replay
             # mutations, network timeouts, or arbitrary 401/403 failures.
-            if (not public and self._session_mode and safe_read
+            if (not public and session_mode and safe_read
                     and exc.code == 401000 and exc.status in (200, 401)):
-                self.auth._assert_lifecycle(lifecycle)
-                await self.auth.refresh(expected_generation=generation)
-                return await exchange(self._get_auth_header())
+                self._assert_request_auth(auth, lifecycle)
+                await auth.refresh(expected_generation=generation)
+                self._assert_request_auth(auth, lifecycle)
+                return await exchange(auth.headers())
             raise
 
     @property

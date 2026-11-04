@@ -260,7 +260,8 @@ class BitTeamWebSocket:
         name = symbol_name(symbol)
         payload = await self.request("/api/tw/history/" + name.upper() + "/" + RESOLUTIONS[interval],
                                      params={"from": start, "to": end})
-        data = payload.get("result", {}).get("data") if isinstance(payload, dict) else None
+        result = payload.get("result") if isinstance(payload, dict) else None
+        data = result.get("data") if isinstance(result, dict) else None
         if not isinstance(data, list):
             raise BitTeamAPIError(502)
         result = [candle(name, interval, item) for item in data]

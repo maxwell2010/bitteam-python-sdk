@@ -34,3 +34,17 @@ CI на Windows/Linux Python3.10-3.13 прошёл, run41847439819. Исходн
 Cloud continuation fixes: account-bound private polling/pagination and archive responses, transaction-id validation, bounded WebSocket sends/handshakes, reconnect gap ordering. See docs/TEST_GAPS.md for synthetic evidence and outstanding live limits.
 
 Исправления code commit 5f65dca прошли PR CI run 41853806810: все 8 Windows/Linux Python3.10-3.13 jobs success, pytest и skip audit success; build/wheel smoke skipped. Это наблюдение относится к code commit, а не к следующей записи документации. Draft PR: https://github.com/maxwell2010/bitteam-python-sdk/pull/1; не merge автоматически.
+
+
+Second cloud continuation: existing PR#1 and head1e46568 verified through GitHub
+API; its run41854178833 had all8 jobs success. Continuing on the same draft PR
+branch. Added read-only typed P2P accounts/withdrawal snapshots from saved JS
+excerpts; general API-v2 renewal remains unproven and is not implemented.
+P2P expiry/lifecycle/identity/cancellation and REST auth-identity boundaries are
+fixed with fake transports. Market/history malformed envelopes, timestamp
+truncation and ambient decimal rounding are covered. Full cloud verification:
+853passed,1DPAPI skip; skip audit passed on LinuxPython3.12.14. See TEST_GAPS
+for exact red/green/provenance, including externally reported local probes.
+The extensible network-withdrawal prepare guard is not evidence of a stock
+public-GET race: existing tracked operations already invalidated those reads.
+No versions/builds/releases/account calls or financial operations were made.

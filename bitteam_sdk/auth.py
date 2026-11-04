@@ -2,7 +2,6 @@
 import asyncio
 import base64
 import math
-import hashlib
 import time
 from email.utils import formatdate
 from http.cookies import SimpleCookie
@@ -90,9 +89,6 @@ class SessionAuth:
         self._generation = 0
         self._lifecycle = 0
         self._pending_requests = set()
-        # API-v2 general cookies are independent of spot access/refresh tokens.
-        # A rejected general token must not trigger a guessed spot refresh flow.
-        self._rejected_general_tokens = set()
         self._refresh_lock = asyncio.Lock()
         self._login_lock = asyncio.Lock()
         self._transport = None
@@ -122,18 +118,6 @@ class SessionAuth:
     def _assert_lifecycle(self, expected):
         if expected != self._lifecycle:
             raise asyncio.CancelledError("Authentication operation was invalidated")
-
-    def _general_token_rejected(self, token):
-        return (None in self._rejected_general_tokens or
-                hashlib.sha256(token.encode()).digest() in self._rejected_general_tokens)
-
-    def _reject_general_token(self, token):
-        # Bound memory without making an older rejected token usable again.
-        # Too many distinct rejections require a new explicit login lifecycle.
-        if len(self._rejected_general_tokens) >= 64:
-            self._rejected_general_tokens.add(None)
-        else:
-            self._rejected_general_tokens.add(hashlib.sha256(token.encode()).digest())
 
     async def _tracked_send(self, *args, **kwargs):
         return await self._tracked_operation(self._transport._send(*args, **kwargs))
@@ -362,7 +346,6 @@ class SessionAuth:
 
     def clear(self, *, expired=False, delete_cache=True):
         self._lifecycle += 1
-        self._rejected_general_tokens.clear()
         try:
             current = asyncio.current_task()
         except RuntimeError:

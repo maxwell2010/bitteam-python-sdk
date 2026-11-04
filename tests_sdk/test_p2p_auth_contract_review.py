@@ -63,25 +63,34 @@ async def test_private_response_cannot_survive_invalidation(boundary, operation)
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("payload", [{"status": False}, ValueError("synthetic-private-body")])
-async def test_http401_blocks_rejected_general_token_without_spot_refresh(payload):
+@pytest.mark.parametrize("payload", [{"status": False}, ValueError("synthetic-proxy-html-body")])
+@pytest.mark.parametrize("operation,kwargs", [
+    ("accept_operation", {"params": {"link": "synthetic-operation"}}),
+    ("change_status_all", {}),
+    ("create_operation", {"data": {"explicit": "synthetic-body"}})])
+async def test_operation_http401_does_not_invalidate_cookie_for_independent_account_read(payload, operation, kwargs):
     auth = auth_with_cookie()
     auth.refresh = AsyncMock()
+    before = (auth.state, auth._lifecycle, auth.generation, auth.headers())
     client = client_with(auth, Response(payload, 401))
-    # This GET mutates server state. It must never be automatically replayed.
+    # HTTP401 may be operation-specific or emitted by an intermediary. No
+    # verified frontend contract establishes global token invalidation here.
     with pytest.raises(AuthenticationError):
-        await client.accept_operation(params={"link": "synthetic-operation"})
+        await getattr(client, operation)(**kwargs)
     assert len(client._session.calls) == 1
-    with pytest.raises(AuthenticationError):
-        await client.accept_operation(params={"link": "synthetic-operation"})
-    assert len(client._session.calls) == 1
+    assert (auth.state, auth._lifecycle, auth.generation, auth.headers()) == before
     auth.refresh.assert_not_awaited()
-    assert auth.state == AuthState.READY
-    assert auth.headers() == {"Authorization": "Bearer synthetic-spot-access-never-use"}
+    sent_header = dict(client._session.calls[0][2]["headers"])
+    client._session.response = Response({"account": []})
+    assert await client.get_accounts() == {"account": []}
+    assert len(client._session.calls) == 2
+    assert client._session.calls[1][2]["headers"] == sent_header
+    auth.refresh.assert_not_awaited()
+
 
 
 @pytest.mark.asyncio
-async def test_new_general_token_can_be_used_after_rejection():
+async def test_new_general_token_can_be_used_after_http401():
     auth = auth_with_cookie()
     client = client_with(auth, Response({}, 401))
     with pytest.raises(AuthenticationError):
@@ -172,28 +181,17 @@ async def test_expired_general_cookie_while_queued_does_not_send():
 
 
 @pytest.mark.asyncio
-async def test_rejection_is_shared_between_p2p_facades_bound_to_same_auth():
+@pytest.mark.parametrize("payload", [{}, ValueError("synthetic-proxy-html-body")])
+async def test_operation_http401_does_not_poison_another_facade_with_same_cookie(payload):
     auth = auth_with_cookie()
-    first = client_with(auth, Response({}, 401))
-    second = client_with(auth)
+    first = client_with(auth, Response(payload, 401))
+    second = client_with(auth, Response({"account": []}))
     with pytest.raises(AuthenticationError):
         await first.get_active_operations()
-    with pytest.raises(AuthenticationError):
-        await second.get_active_operations()
-    assert not second._session.calls
+    assert await second.get_accounts() == {"account": []}
+    assert len(first._session.calls) == 1
+    assert len(second._session.calls) == 1
 
-
-@pytest.mark.asyncio
-async def test_local_session_clear_removes_rejections_from_previous_lifecycle():
-    auth = auth_with_cookie()
-    client = client_with(auth, Response({}, 401))
-    with pytest.raises(AuthenticationError):
-        await client.get_active_operations()
-    auth.clear()
-    auth.state = AuthState.GENERAL_SESSION_READY
-    client._session.response = Response()
-    await client.get_active_operations()
-    assert len(client._session.calls) == 2
 
 
 @pytest.mark.asyncio
@@ -208,18 +206,6 @@ async def test_public_http401_does_not_reject_bound_general_token():
     assert len(client._session.calls) == 2
 
 
-@pytest.mark.asyncio
-async def test_rejection_memory_is_bounded_and_contains_no_raw_tokens():
-    auth = auth_with_cookie()
-    client = client_with(auth, Response({}, 401))
-    for index in range(70):
-        auth._transport._session.cookie_jar.update_cookies(
-            {"access_token": "synthetic-rejected-" + str(index)}, response_url=URL(BitTeamP2PAPI.BASE_URL))
-        with pytest.raises(AuthenticationError):
-            await client.get_active_operations()
-    assert len(auth._rejected_general_tokens) <= 65
-    assert "synthetic-rejected" not in repr(auth._rejected_general_tokens)
-    assert len(client._session.calls) == 65
 
 
 @pytest.mark.asyncio

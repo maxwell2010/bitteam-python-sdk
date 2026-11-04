@@ -204,7 +204,7 @@ skip audit included; builds were skipped. This is start-state evidence.
 | Direction | Implemented and checked offline | Remaining evidence boundary |
 |---|---|---|
 | P2P account/withdrawal read scenarios | Typed snapshots, client facades, exact frontend payload.data extraction, detached raw fields, redacted repr, separate requested/record IDs, conservative statuses | Saved source excerpts and provenance hashes; no current bundle refetch or account call; no financial outcome or full wallet schema |
-| General API-v2 auth expiry | Missing/expired/rejected cookie fails, private HTTP401 typed auth error, no spot refresh or mutation retry, bounded hash-only rejection memory, lifecycle/identity guards and tracked cancellation | No proven general refresh endpoint/method/payload/rotation or live expiry/revocation experiment; cookie names do not prove renewal |
+| General API-v2 authorization failure | Missing/locally expired cookie fails; private HTTP401 is a per-request typed auth error, without blacklist, clear, spot refresh or mutation retry; lifecycle/identity guards and tracked cancellation | HTTP401, including HTML, does not prove global token expiry. No proven general renewal or token-invalid code contract; same-cookie independent calls remain allowed |
 | Market/history integrity | Malformed history result becomes APIError502; boolean/fractional/nonfinite trade timestamps rejected; exact candle volume/order remainder independent of ambient decimal context | Pathological decimal precision above10000 fails explicitly; no additional server status/OHLC/replay guarantees |
 | Priority P2P account-boundary checks | Queue during A->logout/login B prevents mutating GET/POST dispatch; identity/owner close, late JSON, same-session refresh and in-flight invalidation tested | Fake cookies, transports and responses only; no mutations actually sent to exchange |
 | Priority REST auth identity | Same lifecycle on replacement auth does not authorize stale headers; capture identity through dispatch, limiter/session/JSON, retry and refresh | Five original regressions failed before fix; real REST orchestration with fake HTTP session only |
@@ -247,7 +247,7 @@ saved to local files. These reported current failures supplement historical
 matrix rows without converting them into successful live verification.
 
 
-Final cloud verification for this continuation: Linux Python3.12.14 in the
+Pre-blocking-review cloud verification: Linux Python3.12.14 in the
 configured /workspace/venvs/bitteam-sdk environment, full suite 853 passed,
 1 native Windows DPAPI skip (854 collected), check_test_skips passed.
 101 new tests in this continuation: P2P workflows31, facade1, auth38,
@@ -267,3 +267,31 @@ GitHub API showed all8 Windows/Linux Python3.10-3.13 jobs completed successfully
 pytest and skip audit succeeded in every job, build/wheel smoke/upload steps
 were skipped. This entry records that code commit; subsequent documentation
 record commits do not inherit an unobserved CI result.
+
+
+### Review correction: HTTP401 does not prove general-token invalidity
+
+Blocking review identified an unsupported inference in code commit0de21ed:
+private HTTP401 (including HTML) populated a persistent rejection blacklist.
+No primary-source contract establishes that every private operation's401 means
+a globally invalid general token. Permission/confirmation-specific failures or
+an intermediary response cannot be ruled out. That blacklist is removed from
+the final implementation, not merely bounded or renamed. The earlier successful
+CI demonstrates execution of the earlier patch, not the correctness of that
+inference. Per-request AuthenticationError remains; independent get_accounts
+with the same general cookie is allowed after an operation returns JSON or
+HTML401. No automatic clear, refresh, retry or replay occurs. New synthetic
+regressions reproduce the blacklist failure before removal. General renewal
+and actual token expiry remain unverified.
+
+
+Post-review final cloud verification: 856 passed,1 native DPAPI skip (857
+collected), check_test_skips passed on LinuxPython3.12.14. The current auth
+review file has41cases; total added tests since initial PR head1e46568 is104.
+New per-request401 regressions gave8failed/33passed on the blacklist patch,
+then passed after removal; independent reviewer reran158 related cases.
+No primary-source proof of a universal token-invalid401 contract was found.
+Final correction CI evidence (exact SHA/run/status) is recorded in the
+[existing draft PR#1](https://github.com/maxwell2010/bitteam-python-sdk/pull/1)
+after observing GitHub API, separately from the historical code-commit runs
+above. CI success proves these tests executed, not server semantics.

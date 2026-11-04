@@ -56,14 +56,15 @@ payload, rotation rules, expiry schedule or replay safety.
 
 The implemented spot `/refresh-token` flow is a different contract and must not
 be used to renew API-v2 general authorization. No general refresh endpoint or
-automatic relogin is invented. Missing/expired general cookies fail before
-dispatch. A private HTTP 401 is an AuthenticationError with one attempt; a
-rejected general token is not silently replayed. This does not invalidate a
-separately valid spot session. A new general token or a new login lifecycle may
-be used by a later explicit call. Rejection fingerprints are held in memory
-only, without raw tokens; after 64 distinct rejections the session fails closed
-until a new login lifecycle. Private in-flight transport work is tracked so
-local session invalidation cancels blocked reads. Mutating GET routes never receive retries.
+automatic relogin is invented. Missing/locally expired general cookies fail
+before dispatch. A private HTTP 401 is an AuthenticationError for that request
+with one attempt, including a non-JSON/HTML response. The status alone does not
+prove global token expiry: operation permissions, confirmation requirements
+or an intermediary may have caused the rejection. There is no automatic token
+blacklist, cookie clearing, spot refresh or replay. A subsequent independent
+explicit call may use the same general cookie. Private in-flight transport
+work is tracked so local session invalidation cancels blocked reads. Mutating
+GET routes never receive retries.
 
 Actual token expiry, revocation, rotation and renewal require a separately
 authorized account experiment plus a verified renewal contract. No such

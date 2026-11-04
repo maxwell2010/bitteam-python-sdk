@@ -50,3 +50,13 @@ public-GET race: existing tracked operations already invalidated those reads.
 No versions/builds/releases/account calls or financial operations were made.
 
 Code commit 0de21edb3d2cd58b4c9a5478af612775b914fb82 прошёл run41856293623: все8 Windows/Linux Python3.10-3.13 jobs, pytest и skip audit success; distributions skipped. Этот результат проверен через GitHub API и относится к code commit.
+
+
+Blocking review correction: HTTP401 alone (including HTML) is not a proven
+API-v2 general-token-invalid contract. Persistent rejection/blacklist behavior
+from0de21ed was removed. Return AuthenticationError for that request only;
+allow subsequent independent reads with the same cookie, without automatic
+clear/spot refresh/replay. Prior CI for0de21ed is historical and does not
+validate later review corrections. See TEST_GAPS for final checks.
+
+После удаления недоказанного blacklist: полный pytest856passed,1nativeDPAPI skip, check_test_skips passed. Текущий auth review41cases, новые samecookie-read регрессии red8failed33passed до удаления. Независимый reviewer158related passed. SHA/run/status финальной CI-проверки указываются в draft PR#1 после фактической проверки API; старые runs выше относятся к прежним commits.

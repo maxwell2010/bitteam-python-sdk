@@ -6,7 +6,9 @@ Private requests use the general access_token cookie. P2P IDs differ from spot I
 Read-only typed snapshots are available through client.get_p2p_accounts() and
 client.inspect_p2p_withdrawal(identifier); see docs/P2P_READ_WORKFLOWS.md for
 provenance and limitations. General renewal is not established; HTTP401 does
-not trigger spot refresh or mutation replay. Calls are bound to auth identity
+not trigger cookie blacklist/clear, spot refresh or mutation replay; the same
+cookie may be used by a subsequent independent call. HTTP401 is not proof of
+global expiry. Calls are bound to auth identity
 and lifecycle through queue, dispatch and response; logout cancels private
 in-flight transport work.
 

@@ -63,8 +63,6 @@ class BitTeamP2PAPI:
         cookie = session.cookie_jar.filter_cookies(URL(self.BASE_URL)).get("access_token")
         if cookie is None or not cookie.value:
             raise AuthenticationError(401)
-        if self.auth._general_token_rejected(cookie.value):
-            raise AuthenticationError(401)
         return cookie.value
 
     async def call(self, operation, *, path=None, params=None, data=None):
@@ -155,14 +153,12 @@ class BitTeamP2PAPI:
                     except (ValueError, aiohttp.ContentTypeError):
                         assert_current()
                         if entry["private"] and response.status == 401:
-                            auth._reject_general_token(token)
                             raise AuthenticationError(401) from None
                         raise BitTeamAPIError(response.status if response.status >= 300 else 502) from None
                     assert_current()
                     if entry["private"] and response.status == 401:
-                        # General renewal is not established by the saved frontend
-                        # contract. Never call spot refresh or replay a mutation.
-                        auth._reject_general_token(token)
+                        # A request-level HTTP401 does not establish global token
+                        # expiry. Never clear cookies, refresh or replay a mutation.
                         raise AuthenticationError(401)
                     if not isinstance(payload, dict):
                         raise BitTeamAPIError(502)

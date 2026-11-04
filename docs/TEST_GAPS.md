@@ -46,7 +46,7 @@ All methods are anonymous and use a separate DummyCookieJar, TLS verification an
 
 ## P2P per-operation matrix
 
-All routes below are relative to fixed `https://api-v2.bit.team/api/v2`. There are 63 operations: 61 extracted helpers plus 2 concrete derived call sites. 58 require SessionAuth general access_token, not API keys or spot access. Five are classified public. Sixteen GET operations mutate state; no live financial, confirmation, code-delivery or other mutation was exercised.
+All routes below are relative to fixed `https://api-v2.bit.team/api/v2`. There are 84 operations: 61 extracted helpers plus 23 concrete derived call sites. 79 require SessionAuth general access_token, not API keys or spot access. Five are classified public. Seventeen GET operations mutate state; no live financial, confirmation, code-delivery or other mutation was exercised.
 
 Every row has a local synthetic routing test in `test_p2p_api.py`. Those tests verify dispatch/auth placement/defaults, not valid production request bodies or real account outcomes. Unknown body schemas remain explicit caller dicts.
 
@@ -64,6 +64,8 @@ Every row has a local synthetic routing test in `test_p2p_api.py`. Those tests v
 | create_new_advert | POST /anunt/create-new-advert | SessionAuth | no | Offline only |
 | create_new_wallet_for_account | GET /account/create-wallet/{currency_id} | SessionAuth | yes | Offline only |
 | create_new_withdraw | POST /account/create-withdraw | SessionAuth | no | Offline only |
+| create_withdrawal_body | POST /account/create-withdraw, currency_id in JSON body | SessionAuth | no | Offline routing; coordinator-reported public JS callsite, distinct from legacy query helper |
+| create_withdrawal_to_stock_body | POST /account/create-withdraw-to-stock, numeric currency_id95 in body | SessionAuth | no | Explicit raw callsite only; date/hash algorithm and full production body remain unverified |
 | create_operation | POST /operations/create | SessionAuth | no | Offline only |
 | create_ticket | POST /support/ticket/create | SessionAuth | no | Offline only |
 | del_payment_system | GET /user/del-payment-systems/{payment_id} | SessionAuth | yes | Offline only |
@@ -116,7 +118,27 @@ Every row has a local synthetic routing test in `test_p2p_api.py`. Those tests v
 | update_login | POST /user/update-login | SessionAuth | no | Offline only |
 | upload_verification | POST /user/verification-user | SessionAuth | no | Offline only |
 
-P2P gaps: no real success/failure/idempotency/insufficient-balance/2FA/device-confirmation tests for mutations; no verified terminal withdrawal enums; no journal index route inferred from generic getRequestCabinet. `/auth/user` account/additional_wallets/possible_wallets is preserved raw. Child currency IDs belong to API-v2, not spot; offline tests do not establish whether a network is currently enabled. There is no batch withdrawal guarantee. Unknown required body fields must be supplied from separately verified contracts.
+| get_currencies_with_commission | GET /data/currency/with-commission | SessionAuth | no | Offline only; user-relayed RAM callsite/trace, no private live verification |
+| create_wallbtc_operation | POST /wallbtc/operations/create | SessionAuth | no | Offline only; user-relayed RAM callsite/trace, no private live verification |
+| remove_blacklist_users | POST /user/blacklist/remove-users | SessionAuth | no | Offline only; user-relayed RAM callsite/trace, no private live verification |
+| get_email_notification_status | GET /user/notification-status-email | SessionAuth | no | Offline only; user-relayed RAM callsite/trace, no private live verification |
+| get_app_tokens | GET /user/get-app-tokens | SessionAuth | no | Offline only; user-relayed RAM callsite/trace, no private live verification |
+| get_business_payments | GET /user/business/get-payments | SessionAuth | no | Offline only; user-relayed RAM callsite/trace, no private live verification |
+| add_payment_system_temp | POST /user/add-payment-systems-temp | SessionAuth | no | Offline only; user-relayed RAM callsite/trace, no private live verification |
+| get_subscriptions | GET /subscription/list | SessionAuth | no | Offline only; user-relayed RAM callsite/trace, no private live verification |
+| get_active_subscription | GET /subscription/active | SessionAuth | no | Offline only; user-relayed RAM callsite/trace, no private live verification |
+| subscribe_subscription | POST /subscription/subscribe | SessionAuth | no | Offline only; user-relayed RAM callsite/trace, no private live verification |
+| renew_subscription | POST /subscription/renew | SessionAuth | no | Offline only; user-relayed RAM callsite/trace, no private live verification |
+| get_boost_price | GET /boost/get-price | SessionAuth | no | Offline only; user-relayed RAM callsite/trace, no private live verification |
+| get_subscription_price | GET /subscription/get-price | SessionAuth | no | Offline only; user-relayed RAM callsite/trace, no private live verification |
+| get_notifications | GET /user/get-notification | SessionAuth | no | Offline only; user-relayed RAM callsite/trace, no private live verification |
+| get_active_notifications | GET /user/get-active-notification | SessionAuth | no | Offline only; user-relayed RAM callsite/trace, no private live verification |
+| read_all_notifications | GET /user/read-all-notification | SessionAuth | yes | Offline only; user-relayed RAM callsite/trace, no private live verification |
+| create_internal_stock_transfer | POST /account/create-withdraw-to-stock | SessionAuth | no | Offline only; user-relayed RAM callsite/trace, no private live verification |
+| get_account_transaction_journal | GET /transactions/account-transactions | SessionAuth | no | Offline only; user-relayed RAM callsite/trace, no private live verification |
+| get_transaction_journal | GET /transactions/get-transactions | SessionAuth | no | Offline only; user-relayed RAM callsite/trace, no private live verification |
+
+P2P gaps: no real success/failure/idempotency/insufficient-balance/2FA/device-confirmation tests for mutations; no verified terminal withdrawal enums; two fixed journal paths are established by page/shared/base chain, with no arbitrary journal route inferred from generic getRequestCabinet. `/auth/user` account/additional_wallets/possible_wallets is preserved raw. Child currency IDs belong to API-v2, not spot; offline tests do not establish whether a network is currently enabled. There is no batch withdrawal guarantee. Unknown required body fields must be supplied from separately verified contracts.
 
 ## Archive matrix
 
@@ -333,3 +355,135 @@ not prove all errors removed or any live financial result. Exact final
 SHA/run/observed CI status is recorded on the same draft PR#1 after API checks.
 
 The initial full owner run had904passed1skip before three final stream owner-compatibility cases were collected; the final full907passed1skip run includes them. Native DPAPI is the sole skip and skip audit passed.
+
+
+## P2P withdrawal form callsite correction
+
+New primary-source evidence was relayed by the user's local coordinator on
+2026-11-04: anonymous public static GET HTTP200, no cookies/auth, chunk6034
+SHA3b46ec340896bc7fa2673c9b710798220aad5e83fd822515b12c8c027cdec685 matches
+its saved source hash. FunctionZ near offset5295 posts bodyt to standard
+create-withdraw or, for numericcurrency95, create-withdraw-to-stock, then reads
+response.data.data.id. This is distinct from legacy createNewWithdraw query
+currency_id helper; SITE_INVENTORY's attribution of the active form to that
+helper was corrected, not silently merged.
+
+A second coordinator staticGET200 report identifies form bundle Withdraw-
+56b2a70d301a037a.js,41423bytes,SHA
+cbffa511c29dcfeba14c4fa5f7c24a4b3dc47a4ab75761dd3e51745b246eee86:
+form defaults near16625 and selected-wallet currency_id near21434. These are
+coordinator observations of public JS, not cloud bundle downloads, independently
+recomputed hashes, account reads or successful financial endpoints. SourceURLs,
+reported hashes, approximate offsets and exact supplied excerpts are retained
+in schema/documentation. The older saved excerpt only established the existing
+withdrawal-read callsite; its truncated neighboring function was not itself
+proof of these new creation routes.
+
+Catalog now separates65operations:61legacy helpers and4derived callsites.
+Two fixed body creation routes preserve raw response envelopes and opaque id;
+they do not infer transaction/orderId equality, successful withdrawal status,
+confirmation, fees or finality. No automatic route switch or retry occurs.
+SDK fixed-callsite policy forbids query parameters for these two body operations
+to avoid mixing them with the legacy query helper; this is not a claim that the
+backend globally rejects query parameters. Numeric95 is the raw stock branch;
+string'95' is not JS number95. Its date/hash algorithm is not implemented.
+
+The pure exported prepare_p2p_withdrawal builds only the standard body, with
+currency_id,address,sum,public,comment,label,commission_booster_name. Input
+validation is an explicit local policy, not a complete server schema. Exact
+amount text and opaque public/commission values are preserved; there is no
+network/address validation, balance/commission math, hash95 generation or HTTP.
+Currency95 is explicitly unsupported by the planner. Low-level raw operations
+still require separately verified caller input; exposing a route does not
+establish a valid complete financial request.
+
+
+## SessionAuth owner, transport retirement and final scoped evidence
+
+The later reviewer identified stale SessionAuth itself as an owner boundary,
+not just held resources. Independently reproduced with actual REST/client,
+fake RAM cache and transport: stale save mixed A tokens with B cookies; resume,
+login/logout and cleanup could use B's owner state. The final auth patch checks
+ownership before cache load/save, cookie/token installation, network operations,
+and inside scheduled operations, as well as after awaits. Stale clear only
+changes A's memory and does not delete a possibly shared B profile or jar.
+Initial23-case auth snapshot gave19failed/4passed; related current suites and
+independent review passed. No real user cache was loaded, modified or recovered.
+
+REST.auth replacement is now an explicit boundary: validates/binds the new
+strategy, cancels old tracked work, retires the old HTTP session and creates a
+fresh session/jar for the replacement. It does not copy cookies, change A's
+lifecycle as a substitute for identity checking, or delete A/B caches. A fake
+response deliberately ignored first cancellation and applied a late Set-Cookie:
+it remained in retired jarA, never jarB. The old session is closed through shared
+shielded retirement work. Independent tests reproduced cancellation losing a
+close, concurrent close returning early and a failed close becoming later
+success; all3 now pass. Failed retirement remains observable, not guessed closed.
+The actual local HTTPS integration suite also passed; no BitTeam account calls.
+
+## Final RAM/journal contract scope
+
+The16 RAM-inventory additions and internal-stock operation are separate from the
+three publicly covered SiteAPI paths, which are not counted again. Catalog now
+has84operations:61legacy helpers+23derived,79private/5public,17mutatingGET.
+Counts describe registered contracts only. Exact source/offset/reported-contract
+metadata and the bounded10-JS manifest scope are retained in schema. No complete
+all-JS inventory, full backend body schema, permission matrix or API coverage is
+claimed. /auth/login and /oauth/token of another auth-client were excluded.
+
+Internal-stock transfer bodycurrency_id/sum/internal_request:true has a separate
+raw-response contract with no data.id requirement and its own pure plan. It is
+not constrained to the other form's95/date/hash branch; currency/account
+eligibility is still unverified. No result fields were read by its primary
+callsite, so the SDK does not manufacture them or infer financial success.
+
+Two journal operations preserve only the proven page-prop -> module71801 ->
+API-client77016 base chain and page1/limit999 export window, with amount/system
+for the typed path. Unknown filters, general pagination and retention are
+rejected/not claimed. Deals already mapped to operations/archive, not a new
+operation. Generic arbitrary-url helper stays unavailable.
+
+The journal UI switch in3812 offset6723 is exposed separately as ui_state:
+
+| Raw P2P withdraw status | Conservative main state | Journal UI state |
+|---|---|---|
+|-1|cancelled|cancelled|
+|0|created|created|
+|1|pending|confirmed|
+|2|unknown|done|
+|other/unrecognized|unknown|unknown, with raw_status retained|
+
+These are UI labels, not an exhaustive backend enum, settlement evidence,
+blockchain confirmations or finality. ui_state_source records the shared source;
+its reported SHA and provenance are documented, not rehashed in the cloud.
+
+External blockers remain: real account expiry/renewal/revocation and delivery,
+permissions and financial outcomes, complete required bodies for raw mutations,
+95-form date/hash, orderId-to-spot-transaction identity, journal retention and
+full multi-page export, market/docs/archive backend availability and successful
+JSON schemas, private reconnect live behavior, replay and atomic L2 recovery.
+The user-reported public static/RAM traces and earlier public-only probe failures
+are distinguished from cloud offline execution. Full bundles/RAM logs were not
+provided as cloud files; no new cloud public exchange probes or credential
+access were used to remove those boundaries. No versions, builds, artifacts,
+tags, releases, publications or real financial/account operations were performed.
+
+
+## Final local verification for this audit report
+
+Configured Linux Python3.12.14 environment: **1271 passed, 1 native Windows
+DPAPI skip**,1272collected; check_test_skips passed. This includes all confirmed
+SessionAuth/REST owner fixes, withdrawal/RAM/journal operations and UI evidence,
+with existing local HTTPS integration and independent cross-reviews. Exact
+final head and observed CI run are maintained in draft PR#1 description after
+GitHub API verification; distributions remain forbidden/skipped.
+
+Intermediate full passes (907/1011/1211 plus native skip) refer to earlier suite
+snapshots; they are not the final count. New pure prepare models are features,
+not claims of a reproduced production financial failure. The raw route tests
+prove offline routing/guards only. A mutable body selector was independently
+reproduced changing while queued (4failed before dispatch revalidation, then
+passed with zero fake dispatch on mismatch). No actual mutation was exercised.
+An integration fixture was updated to the proven data.id response shape, not
+used to relax the production response contract. Counts are not proof that all
+SDK errors or website/API functionality have been covered.

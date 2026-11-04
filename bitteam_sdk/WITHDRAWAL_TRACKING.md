@@ -54,3 +54,22 @@ UI строит ссылку обозревателя из links[].tx и params.
 ## Read-only P2P snapshot
 
 client.inspect_p2p_withdrawal(existing_p2p_id) читает только доказанный payload.data. Requested ID и record ID доступны отдельно; неизвестный статус не означает успех. client.get_p2p_accounts() сохраняет account/user/total_usd без догадок о типах и валютах. Источники и offline-границы: docs/P2P_READ_WORKFLOWS.md.
+
+
+## Отдельные новые frontend-контракты
+
+Legacy create_new_withdraw с querycurrency_id не подменяется body-callsite
+формы. prepare_p2p_withdrawal строит стандартный body безHTTP и отклоняет95;
+поля public/commission_booster_name не трактуются. У другой формы
+SpotAssetsTransfer отдельный bodycurrency_id,sum,internal_request:true для того
+же stock endpoint: prepare_p2p_internal_transfer не ограничен95, не добавляет
+address/date/hash и не требует/не придумывает response.data.id. Доступность и
+результат перевода не проверены. Источники/ограничения: SITE_INVENTORY/schema.
+
+Явный journal UI switch в3812-633d8d6f222bceb0.js offset6723 даёт метки
+cancelled/created/confirmed/done для-1/0/1/2. TransactionEvidence.ui_state
+хранит их отдельно от основного state:1pending,2unknown. Поле ui_state_source
+содержит URL; raw_status и raw сохраняются. Unknown не повышается до success.
+Это метки интерфейса, не exhaustivebackendenum и не blockchainfinality.
+Фиксированные журналы имеют доказанное export-окно page1/limit999 и типы
+amount/system; общая пагинация/retention/полнота истории не доказаны.

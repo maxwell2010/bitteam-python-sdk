@@ -1,71 +1,66 @@
-# Продолжение проверки в Codex Cloud
+# Продолжение проверки BitTeam SDK в Cloud
 
 Repository: https://github.com/maxwell2010/bitteam-python-sdk
-Branch: main. Read AGENTS.md before making changes.
+Base: main. Единственная рабочая ветка: fix/cloud-lifecycle-timeouts.
+Единственный draft PR: https://github.com/maxwell2010/bitteam-python-sdk/pull/1
+Не merge и не включать auto-merge. Сначала читать AGENTS.md и docs/TEST_GAPS.md.
 
-Пользователь запретил новые версии, релизы и выпуск сборок до завершения проверки. Не меняйте версию, не создавайте теги, GitHub Releases, PyPI publications либо distributions. Push/PR CI запускает только tests+JUnit. Не запускайте manual verify_distribution.
+## Заморозка и безопасная проверка
 
-## Подготовка
-
-Из корня репозитория:
+До нового явного указания пользователя запрещены версии, теги, релизы,
+wheel/sdist и публикации. Не запускать manual verify_distribution.
+Не выполнять реальные аккаунтные/финансовые запросы, подтверждения, отправку
+кодов или изменение настроек. Реальные cookies/токены/profile main удалены;
+не восстанавливать и не запрашивать их. Пользовательский cache не трогать.
+Тесты используют синтетические данные, fake RAM cache/HTTP/WS и локальный HTTPS.
 
 ```sh
-python -m pip install -r requirements-sdk-dev.txt
-python -m pytest -c tests_sdk/pytest.ini tests_sdk -ra --junitxml=sdk-test-results.xml
-python scripts_sdk/check_test_skips.py sdk-test-results.xml
+source /workspace/venvs/bitteam-sdk/bin/activate
+python -m pytest -c tests_sdk/pytest.ini tests_sdk -ra --junitxml=work/sdk-test-results.xml
+python scripts_sdk/check_test_skips.py work/sdk-test-results.xml
 ```
 
-CI на Windows/Linux Python3.10-3.13 прошёл, run41847439819. Исходный cloud baseline: 706 passed, 1 DPAPI skip. После текущих исправлений: 752 passed, 1 DPAPI skip на Linux Python 3.12.14; check_test_skips прошёл. Эти числа не означают полную live-проверку. Следуйте docs/TEST_GAPS.md: неизвестные статусы не означают успех, каталоги endpoint не равны live verification.
+Последний полный локальный результат: **1271 passed, 1 native Windows DPAPI
+skip**, 1272 collected, Linux Python 3.12.14; skip audit прошёл.
+Обычный sandbox запрещает локальные sockets; для HTTPS-фикстур нужен только
+доступ исполнителя к локальным тестовым сокетам, без расширения HTTP allowlist.
+Точный финальный SHA/run/наблюдённый статус CI записываются в описании PR после
+проверки GitHub API. Старые успешные runs не заменяют проверку нового head.
+Push/PR запускает tests/JUnit/skip audit, сборки должны быть skipped.
 
-## Ограничения аккаунта
+## Основные изменения и границы
 
-Пароли, cookies и токены в репозитории отсутствуют. Локальный DPAPI profile main удалён по запросу пользователя. WindowsDPAPI не переносится в LinuxCloud. Автоматически восстанавливать credentials или запрашивать их в публичном issue нельзя. Не выполнять реальные ордера/выводы/подтверждения, не отправлять коды и не менять настройки аккаунта. Допустимы synthetic tests и отдельно ограниченные public read-only проверки.
+- SessionAuth проверяет реального владельца до save/load/login/logout/refresh,
+  cookie/token/cache side effects и внутри scheduled операций. Stale A может
+  очистить свою память, но не jar и потенциально общий cache/profile B.
+- Замена REST.auth отменяет старую tracked работу и отделяет HTTP session/jar;
+  поздний Set-Cookie остаётся в старом jar. Retired cleanup защищён от отмены,
+  concurrent close ждёт завершения, ошибки закрытия не превращаются в success.
+- Held P2P/account-stream/archive ссылки проверяют owner identity, включая
+  queued dispatch и iterator resume. Same-owner refresh и anonymous public
+  resources сохранены; legacy duck transport tests не ослабляют real-owner guard.
+- HTTP401 в P2P - ошибка конкретного запроса, без blacklist/clear/spot refresh/
+  replay. Same-cookie независимый read допустим. General renewal не доказан.
+- Standard form body, legacy query-helper и internal stock transfer - разные
+  callsites. Pure планы не делают HTTP. Internal_request transfer не только95;
+  другая95/date/hash форма остаётся raw, её hash не вычисляется.
+- Каталог содержит84операции (61helper+23derived), а не весь сайт.16 RAM fixed
+  callsites, internal-transfer и2journal пути имеют source/offset/chain provenance
+  от локального reviewer. Public SiteAPI дубли не считаются новыми.
+- Journal export ограничен page1/limit999, type amount/system; произвольные
+  фильтры, general pagination и retention не доказаны. ui_state отражает UI
+  labels отдельно: основной state1 pending, state2 unknown, не finality.
+- Market/history malformed envelopes, timestamp truncation и ambient Decimal
+  rounding исправлены; reconnect не обещает replay или atomic L2.
 
-## Оставшиеся внешние проверки
+## Внешние блокеры
 
-- Связь spot withdrawal orderId с transaction.id не доказана.
-- Delivery Telegram device-login и долгосрочное истечение/отзыв refresh не проверены в реальном аккаунте.
-- Некоторые market/docs/archive endpoints ранее были недоступны. Не выдавать зарегистрированный контракт за успешный live endpoint.
-- Private financial routes требуют отдельного пользовательского сценария; offline tests не доказывают исполнение биржей.
-- Reconnect показывает gap, не обещает replay либо атомарную L2-синхронизацию без доказанного sequence-id.
-
-Продолжайте исправлять только воспроизводимые ошибки с независимыми регрессиями и обновляйте матрицу evidence. Не объявляйте отсутствие всех ошибок по количеству тестов.
-
-Cloud continuation fixes: account-bound private polling/pagination and archive responses, transaction-id validation, bounded WebSocket sends/handshakes, reconnect gap ordering. See docs/TEST_GAPS.md for synthetic evidence and outstanding live limits.
-
-Исправления code commit 5f65dca прошли PR CI run 41853806810: все 8 Windows/Linux Python3.10-3.13 jobs success, pytest и skip audit success; build/wheel smoke skipped. Это наблюдение относится к code commit, а не к следующей записи документации. Draft PR: https://github.com/maxwell2010/bitteam-python-sdk/pull/1; не merge автоматически.
-
-
-Second cloud continuation: existing PR#1 and head1e46568 verified through GitHub
-API; its run41854178833 had all8 jobs success. Continuing on the same draft PR
-branch. Added read-only typed P2P accounts/withdrawal snapshots from saved JS
-excerpts; general API-v2 renewal remains unproven and is not implemented.
-P2P expiry/lifecycle/identity/cancellation and REST auth-identity boundaries are
-fixed with fake transports. Market/history malformed envelopes, timestamp
-truncation and ambient decimal rounding are covered. Full cloud verification:
-853passed,1DPAPI skip; skip audit passed on LinuxPython3.12.14. See TEST_GAPS
-for exact red/green/provenance, including externally reported local probes.
-The extensible network-withdrawal prepare guard is not evidence of a stock
-public-GET race: existing tracked operations already invalidated those reads.
-No versions/builds/releases/account calls or financial operations were made.
-
-Code commit 0de21edb3d2cd58b4c9a5478af612775b914fb82 прошёл run41856293623: все8 Windows/Linux Python3.10-3.13 jobs, pytest и skip audit success; distributions skipped. Этот результат проверен через GitHub API и относится к code commit.
-
-
-Blocking review correction: HTTP401 alone (including HTML) is not a proven
-API-v2 general-token-invalid contract. Persistent rejection/blacklist behavior
-from0de21ed was removed. Return AuthenticationError for that request only;
-allow subsequent independent reads with the same cookie, without automatic
-clear/spot refresh/replay. Prior CI for0de21ed is historical and does not
-validate later review corrections. See TEST_GAPS for final checks.
-
-После удаления недоказанного blacklist: полный pytest856passed,1nativeDPAPI skip, check_test_skips passed. Текущий auth review41cases, новые samecookie-read регрессии red8failed33passed до удаления. Независимый reviewer158related passed. SHA/run/status финальной CI-проверки указываются в draft PR#1 после фактической проверки API; старые runs выше относятся к прежним commits.
-
-
-Held-resource owner review: resource.authA can remain unchanged while real
-client.rest.auth becomesB. Added strict owner identity checks in P2P/archive/
-account streams, including held references, queued RPC/HTTP and iterator
-resume. Legacy duck transports without auth remain compatible, real REST owner
-requires exact identity. Final full cloud907passed1DPAPI skip, skip audit passed;
-51new regression cases (including the final3stream compatibility cases). See TEST_GAPS for red/green and exact boundaries. Same
-PR#1 only; final CI result is observed per exact SHA in its description.
+Первичные frontend-факты переданы пользователем от локального static/RAM review;
+cloud не скачивал полные JS/не пересчитывал hashes. Ограниченная10-JS выборка и
+последующий targeted trace не означают all-site coverage. Public-only локальные
+probes дали timeouts/HTML502, не постоянную недоступность и не валидность параметров.
+Не проверены live account expiry/renewal/revocation/delivery, права и финансовые
+исходы, полные body-схемы raw mutations,95-form date/hash, связь orderId и spot
+transaction.id, blockchain finality, journal retention и replay. Подробная
+матрица, источники и red/green: docs/TEST_GAPS.md, SITE_INVENTORY.md,
+WITHDRAWAL_TRACKING.md и docs/P2P_READ_WORKFLOWS.md.

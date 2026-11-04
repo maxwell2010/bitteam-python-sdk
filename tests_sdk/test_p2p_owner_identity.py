@@ -34,6 +34,8 @@ def replace_owner(client):
     replacement = ready_auth("B")
     replacement.bind(client.rest)
     client.rest.auth = replacement
+    # Real owner replacement intentionally retires A's HTTP session/cookie jar.
+    client.rest._session = SimpleNamespace(cookie_jar=aiohttp.CookieJar(), close=AsyncMock())
     client.rest._session.cookie_jar.update_cookies(
         {"access_token": "synthetic-general-B"}, response_url=URL(BitTeamP2PAPI.BASE_URL))
 

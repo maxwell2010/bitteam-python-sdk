@@ -60,7 +60,7 @@
 
 Публичный API-v2 coins/list подтверждает сетевые дочерние валюты. USDT: parent key/base_currency_id=38, token_name=ERC-20; children OMNI key29, TRC-20 key44, BEP-2 key62, BEP-20 key63. BNB: parent key53/token_name=BNB, child BNB(BSC) key61. У children есть дополнительные minimal/commission/digit/withdraw, но is_visible=false. Нельзя обещать доступность старой сети на основании одной записи каталога.
 
-Форма найдена через публичный Next build manifest: `https://bit.team/p2p/_next/static/chunks/pages/Cabinet/WalletAction/Withdraw-56b2a70d301a037a.js`. Она строит сетевые вкладки из `account.token_name/currency_id`, `additional_wallets[{token_name,currency_id}]` и `possible_wallets[id]`. Выбор вкладки сохраняется в selectedCurrency. onSubmit разрешает его в currency_id и передаёт ровно в одну createNewTransaction. Общий helper делает POST `/account/create-withdraw?currency_id=<id>` с body и bearer token. Отдельный network параметр в проверенной форме и wrapper не найден.
+Форма найдена через публичный Next build manifest: `https://bit.team/p2p/_next/static/chunks/pages/Cabinet/WalletAction/Withdraw-56b2a70d301a037a.js`. Она строит сетевые вкладки из `account.token_name/currency_id`, `additional_wallets[{token_name,currency_id}]` и `possible_wallets[id]`. Выбор вкладки сохраняется в selectedCurrency. onSubmit разрешает его в currency_id и передаёт ровно в одну createNewTransaction. Прежнее приписывание этой форме legacy query-helper было ошибочным. По свежему public static-read локального координатора (2026-11-04) конкретный createNewTransaction callsite делает POST с currency_id в JSON body: `/account/create-withdraw`, а для числового currency_id=95 - `/account/create-withdraw-to-stock`. Legacy createNewWithdraw helper с query currency_id существует отдельно; это другой подтверждённый контракт, он сохранён без подмены. Отдельный network-параметр не установлен.
 
 Следовательно, для P2P разные сети выбираются разными currency_id; разные токены/сети следует оформлять отдельными заявками. Возможность batch/атомарных или одновременных выводов не подтверждена. Это не основание использовать API-v2 IDs в spot API: namespaces и подтверждения различаются. Приватные wallet/account endpoints и любые выводы не вызывались; доступность конкретной сети, адреса и средства не проверялись.
 
@@ -74,3 +74,85 @@
 
 
 Обновление проверки новостей: HTML блога объявляет WordPress REST discovery. Подтверждены публичные GET `/blog/wp-json/wp/v2/posts`, `/posts/{id}`, `/categories`; SDK предоставляет get_news_posts/get_news_post/get_news_categories. Декларированный RSS `/blog/feed/` при проверке вернул 404.
+
+
+## Исправление callsite формы P2P: body и internal95
+
+Источник нового подтверждения - public static GET локального координатора,
+без cookies/auth: HTTP200 для
+`https://bit.team/p2p/_next/static/chunks/6034-f2e976244927be8e.js`,
+SHA256 `3b46ec340896bc7fa2673c9b710798220aad5e83fd822515b12c8c027cdec685`
+(совпадает с сохранённым hash этого chunk). Около offset5295, функция Z:
+маршрут выбирается выражением95===t.currency_id, POST получает bodyt и Bearer,
+затем клиент читает response.data.data и возвращает p.id. Этот id не
+отождествляется со spot transaction.id или spot withdrawal orderId.
+
+Координатор также сообщил HTTP200 для актуального статического form bundle
+`https://bit.team/p2p/_next/static/chunks/pages/Cabinet/WalletAction/Withdraw-56b2a70d301a037a.js`,
+41423bytes, SHA256
+`cbffa511c29dcfeba14c4fa5f7c24a4b3dc47a4ab75761dd3e51745b246eee86`.
+Около offset16625 form defaults: address/public/comment/label/sum - пустые
+строки, commission_booster_name - null. Около offset21434 форма добавляет
+selected-wallet currency_id; только95 добавляет date/hash. Семантика public,
+commission booster и алгоритм hash95 этим не установлены.
+
+В облаке проверены сохранённый schema/excerpt и переданная точная выдержка;
+полные JS не скачивались заново. Это primary frontend source evidence,
+сообщённое координатором, а не успешный финансовый endpoint или наша cloud-live
+проверка. Стандартный prepare-план чистый и не делаетHTTP; internal95 остаётся
+явным raw low-level контрактом без генерации date/hash и без обещания валидного
+production body. Никаких POST, отправки кодов или подтверждений не выполнялось.
+
+
+## Ограниченная RAM-инвентаризация прямых API-v2 callsites
+
+Источник - переданная пользователем RAM-инвентаризация локального reviewer:
+10 реально подключённых публичных JS, homepage buildR5BL6q2trcHZtSUYGbF3M,
+manifest SHA5520c22a65c8cfc9076ed7e780071c0f41a6dc92cf51d2e0293d7a69fbc62c5f.
+Это ограниченный набор, не полное покрытие всех JS/сайта. Общий source
+`https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js`,
+SHA2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49;
+module77016 околоoffset121387 создаёт baseURLhttps://api-v2.bit.team/api/v2.
+В schema сохранены16 новых фиксированных операций с offsets начала method и
+reported_contract; текст полного JS для них не выдумывается. Ответы raw,
+проверяются только наблюдённые поля; значения/типы/enum/права не додумываются.
+GET/user/read-all-notification имеет побочный эффект и помечен mutating GET.
+POSTnull, explicitbody/type и разные response shapes разделены. Публичные
+/anunt/get, /anunt/get-limit-percent, /get/data-init-payment-method уже покрыты
+SiteAPI и не считаются новыми. /auth/login и /oauth/token другого auth-client
+не включены и не используются как доказательство general-token refresh.
+
+Отдельный внутренний transfer: manifest-linked
+`https://bit.team/p2p/_next/static/chunks/pages/Cabinet/WalletAction/SpotAssetsTransfer-370f165e27881048.js`,
+SHAf201f8530c9b0e65ecb5269f261d1e543c0b7b0e0881c0391b7ab8ed495efe28,
+offset16015 POST/account/create-withdraw-to-stock с bodycurrency_id,sum,
+internal_request:true. Поля ответа не читаются. Это отдельный raw-контракт и
+pure prepare-план, не только95/date/hash и не требование data.id. Доступность
+валют/аккаунта и результат перевода не проверены.
+
+## Targeted trace: журнал и chain-provenance
+
+Новых API-запросов при этом локальном RAM trace не было. Общий module71801:
+`https://bit.team/p2p/_next/static/chunks/3812-633d8d6f222bceb0.js`,
+SHA2c0957ed01c7bfd933ba10d0bba968fafb5802f81872c2f9205768b6a0b20107.
+Offset5600 импортирует77016; offset5715 читает props url/type; offset7813 делает
+GET url?page=1&limit=999 с optionaltype и generalBearer; offset7967 читает
+response.data.data. Base77016 доказан выше отдельно.
+
+Page props под `https://bit.team/p2p/_next/static/chunks/pages/Cabinet/`:
+
+| Page / SHA | Offset | Fixed prop |
+|---|---|---|
+| Archive-729a89b5478b2127.js / ef412159bdc563869b4abc3e120573d2e8d08250e276e443e89dd92cbf8f66bd |6614| /transactions/account-transactions |
+| Trader-ac27c0d669bfbe6a.js /109db258fd8c687717a0a5e8682bc484a14798dc9a438ec8626db5c9d015f535 |7383| /transactions/get-transactions, type amount |
+| Any-1009ae0797d3db0d.js /463884550e670cee4fd5000b26a657970416e10a2f607373b18252f4ee9d45be |3982| /transactions/get-transactions, type system |
+| Deals-a303fa114036a6ac.js /f1daaa5fb69b09728fbcccf47ebdf0d885e03f9143092fd5c7b46359ede27c05 |5956| /operations/archive, уже существующая операция |
+
+Добавлены только два недостающих fixed journal пути; произвольный url или
+фильтры generic helper не открываются. Подтверждены exportpage1/limit999 и
+amount/system, не общая пагинация/retention. Тот же3812 offset6723 содержит
+явный UI withdraw switch-1/0/1/2 на cancelled/created/confirmed/done;
+default возвращает исходное значение. ui_state отражает эти метки отдельно:
+mainstate1 pending,2unknown. Это UI, не exhaustivebackend enum или finality.
+Все hash/offset/source факты в этом разделе - provenance локального reviewer,
+не cloud-refetch/hash recomputation или live финансовый результат.

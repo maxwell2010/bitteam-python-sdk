@@ -132,18 +132,45 @@ class SessionAuth:
             raise asyncio.CancelledError("Authentication owner was replaced")
 
     async def _tracked_send(self, *args, **kwargs):
+        self._assert_owner()
         return await self._tracked_operation(self._transport._send(*args, **kwargs))
 
     async def _tracked_operation(self, operation):
         lifecycle = self._lifecycle
-        task = asyncio.create_task(operation)
+        try:
+            self._assert_owner()
+        except BaseException:
+            if asyncio.iscoroutine(operation):
+                operation.close()
+            raise
+
+        async def owned_operation():
+            self._assert_owner()
+            self._assert_lifecycle(lifecycle)
+            return await operation
+
+        task = asyncio.create_task(owned_operation())
         self._pending_requests.add(task)
         try:
-            result = await task
+            try:
+                result = await task
+            except BaseException:
+                self._assert_owner()
+                raise
+            self._assert_owner()
             self._assert_lifecycle(lifecycle)
             return result
         finally:
             self._pending_requests.discard(task)
+            # If cancellation/owner replacement prevented the scheduled wrapper
+            # from starting, its supplied coroutine must not remain unawaited.
+            if asyncio.iscoroutine(operation):
+                operation.close()
+
+    async def _clear_owned_cookies(self):
+        self._assert_owner()
+        await self._transport.clear_cookies()
+        self._assert_owner()
 
     @staticmethod
     def _data(response):
@@ -171,20 +198,23 @@ class SessionAuth:
         return LoginResult(self.state, self._delivery_channel, self._lifecycle)
 
     async def login(self, email: str, password: str):
+        self._assert_owner()
         if not email or not password:
             raise ValueError("Email and password are required")
         lifecycle = self._lifecycle
         async with self._login_lock:
+            self._assert_owner()
             self._assert_lifecycle(lifecycle)
             self.clear()
             lifecycle = self._lifecycle
             self.email = email
-            await self._transport.clear_cookies()
+            await self._clear_owned_cookies()
             self._assert_lifecycle(lifecycle)
             response = await self._auth_request("/clients/web/login", {"email": email, "password": password})
             return self._transition(self._data(response))
 
     def _require(self, state):
+        self._assert_owner()
         if self.state != state or not self._uid:
             raise RuntimeError(f"Authentication step requires {state.value}")
 
@@ -222,18 +252,21 @@ class SessionAuth:
         return LoginResult(self.state, self._delivery_channel, self._lifecycle)
 
     def _install_tokens(self, response):
+        self._assert_owner()
         if not isinstance(response, dict):
             raise AuthenticationError(502)
         data = response.get("result")
         if not isinstance(data, dict) or not all(isinstance(data.get(k), str) and data[k] for k in ("access", "refresh")):
             raise AuthenticationError(502)
         self._transport.set_spot_cookies(data["access"], data["refresh"])
+        self._assert_owner()
         self._access, self._refresh = data["access"], data["refresh"]
         self._generation += 1
         self.state = AuthState.READY
         self.save_session()
 
     def save_session(self):
+        self._assert_owner()
         if self.cache is None or self.state != AuthState.READY:
             return
         session = self._transport._session
@@ -252,10 +285,12 @@ class SessionAuth:
 
     async def resume(self, *, validate=True):
         from .session_cache import SessionCacheError
+        self._assert_owner()
         lifecycle = self._lifecycle
         if self.cache is None:
             return False
         data = self.cache.load()
+        self._assert_owner()
         if data is None:
             return False
         if data["base_url"] != self._transport.base_url or data["auth_url"] != self.auth_url:
@@ -265,6 +300,7 @@ class SessionAuth:
         if not isinstance(data["cookies"], list) or len(data["cookies"]) > 256:
             raise SessionCacheError("Cached cookies are invalid")
         session = await self._transport._get_session()
+        self._assert_owner()
         self._assert_lifecycle(lifecycle)
         prepared = []
         hosts = {origin.host for origin in self._transport._allowed_origins}
@@ -292,6 +328,7 @@ class SessionAuth:
             if expires is not None:
                 morsel["expires"] = formatdate(expires, usegmt=True)
             prepared.append((cookie, URL.build(scheme="https", host=domain).with_path(item["path"] or "/")))
+        self._assert_owner()
         self.clear(delete_cache=False)
         lifecycle = self._lifecycle
         session.cookie_jar.clear()
@@ -304,14 +341,19 @@ class SessionAuth:
                 await self._tracked_operation(self._transport.get_balance())
             except BitTeamAPIError as error:
                 if is_authentication_failure(error, expired=True):
+                    self._assert_owner()
+                    if self._lifecycle != lifecycle and self.state != AuthState.EXPIRED:
+                        self._assert_lifecycle(lifecycle)
                     self.clear(expired=True)
-                    await self._transport.clear_cookies()
+                    await self._clear_owned_cookies()
                     return False
                 raise
         self._assert_lifecycle(lifecycle)
+        self._assert_owner()
         return True
 
     async def open_spot_session(self):
+        self._assert_owner()
         if self.state != AuthState.GENERAL_SESSION_READY:
             raise RuntimeError("Complete login confirmations before opening spot session")
         generation = self._generation
@@ -322,7 +364,11 @@ class SessionAuth:
         return LoginResult(self.state)
 
     async def refresh(self, *, expected_generation=None):
+        self._assert_owner()
+        lifecycle = self._lifecycle
         async with self._refresh_lock:
+            self._assert_owner()
+            self._assert_lifecycle(lifecycle)
             if expected_generation is not None and self._generation != expected_generation and self.state == AuthState.READY:
                 return LoginResult(self.state)
             if self.state != AuthState.READY or not self._refresh:
@@ -335,17 +381,22 @@ class SessionAuth:
                     raise AuthenticationError(401)
                 self._install_tokens(response)
             except BitTeamAPIError as exc:
+                self._assert_owner()
+                self._assert_lifecycle(lifecycle)
                 if is_authentication_failure(exc, expired=True):
                     try:
+                        self._assert_owner()
                         self.clear(expired=True)
                     finally:
-                        await self._transport.clear_cookies()
+                        await self._clear_owned_cookies()
                 raise
             return LoginResult(self.state)
 
     async def logout(self, *, use_refresh=False):
+        self._assert_owner()
         lifecycle = self._lifecycle
         async with self._refresh_lock:
+            self._assert_owner()
             self._assert_lifecycle(lifecycle)
             try:
                 if self.state == AuthState.READY:
@@ -370,7 +421,14 @@ class SessionAuth:
         self.state = AuthState.EXPIRED if expired else AuthState.NEW
         self._generation += 1
         if delete_cache and self.cache is not None:
-            self.cache.delete()
+            try:
+                self._assert_owner()
+            except asyncio.CancelledError:
+                # A cache/profile can be shared with the owner's replacement.
+                # Old credentials may be cleared locally without deleting it.
+                pass
+            else:
+                self.cache.delete()
 
     async def clear_session(self):
         """Local-only removal; use logout() to revoke the server session too."""
@@ -386,4 +444,11 @@ class SessionAuth:
                 # Draining canceled requests can yield to a new login. Never
                 # remove cookies belonging to that newer authentication life.
                 if self._lifecycle == cleanup_lifecycle:
-                    await self._transport.clear_cookies()
+                    try:
+                        self._assert_owner()
+                    except asyncio.CancelledError:
+                        # Local cleanup of an old auth remains valid, but the
+                        # owner's current cookie jar belongs to another auth.
+                        pass
+                    else:
+                        await self._clear_owned_cookies()

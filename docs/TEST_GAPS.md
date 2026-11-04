@@ -601,3 +601,45 @@ read with the platform default cp1252, raising UnicodeDecodeError. The offline
 README regression now explicitly reads UTF-8, matching the tracked document.
 This is a test correction, not a disabled Windows check. Final replacement SHA
 and CI outcome are recorded in draft PR #1.
+
+## Source inventory and manifest correction after 20e230 (2026-11-04)
+
+Independent static review found MANIFEST.in excluded the canonical root README,
+and package_source.py still referenced the removed SDK README and performed
+archive creation at import. The old script was read, NEVER executed/imported.
+
+package_source.py is now a stdlib-only public-file planner with a main guard:
+explicit path inventory or Git-tracked allowlist, sorted relative names,
+required-input checks, rejected traversal/symlinks/case collisions. Import does
+not import SDK, invoke Git, create directories, ZIPs or checksums. Its CLI only
+prints JSON; no archive writer remains. Public inputs include root README,
+AGENTS, metadata/dev requirements, workflow, docs, SDK sources/schema/report
+inputs, tests and verification scripts. Legacy README is preserved. Known
+secret/cache/session/build/output paths are excluded; this is an audited source
+allowlist, not a claim that arbitrary file contents can be classified as safe.
+
+The actual setuptools FileList template processor is used WITHOUT a build
+command to compare manifest selection with the source plan and reject synthetic
+sensitive/runtime paths. Setuptools is an explicit development test dependency;
+SDK metadata/version is unchanged. Processing the OLD manifest against the
+public inventory reproduced missing README/AGENTS/docs inputs, without sdist.
+
+A plain temporary copy of planned source files (no archive, no .git) now passes
+the readme/link checker. An explicit standalone file inventory prevents querying
+an enclosing Git repository. Regressions forbid Git for the VCS-free fixture
+and run its copied CLI under Python -I -B, including explicit sibling planner
+loading. This addresses extracted-source test inputs without adding a skip or
+shipping .git. Focused checks:30 passed before the final full suite.
+
+No ZIP/wheel/sdist, SDK installation, version change, release, real account call
+or user-cache access was used. This is inventory/manifest/source-tree validation,
+NOT installed-wheel or generated-sdist verification. Exact final SHA and all10
+CI jobs are recorded in draft PR#1; previous 20e230 CI success predates these fixes.
+
+Final source-plan suite: **1388 passed,1 native DPAPI skip**,1389 collected;
+skip audit passed on Linux Python3.12.14. All30 focused source checks also ran
+successfully from a plain copied source tree without .git (inside a parent
+checkout), including planner CLI and isolated documentation CLI. Manifest
+case-insensitive exclusions match the planner for tested synthetic secret,
+session/cache/build variants. The final inventory changes are independently
+reviewed. Exact-SHA CI remains a separate result in PR#1.

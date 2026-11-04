@@ -1,11 +1,21 @@
-exclude README.md
+include README.md AGENTS.md MANIFEST.in .gitignore
 include pyproject.toml requirements-sdk.txt requirements-sdk-dev.txt
 recursive-include bitteam_sdk *.py *.md
-include bitteam_sdk/schemas/openapi.json
+include bitteam_sdk/requirements.txt bitteam_sdk/structure.txt
 recursive-include bitteam_sdk/schemas *.json
-include bitteam_sdk/LIVE_CHECKS.json
-include bitteam_sdk/EXTENDED_CHECKS.json
+include bitteam_sdk/LIVE_CHECKS.json bitteam_sdk/EXTENDED_CHECKS.json
+recursive-include docs *.md
 recursive-include tests_sdk *.py *.ini
 recursive-include scripts_sdk *.py
 include .github/workflows/sdk.yml
-global-exclude *.db *.env *.log *.pyc
+prune .git
+prune work
+prune build
+prune dist
+prune output-sdk
+global-exclude *.db *.sqlite* *.env .env* *.log *.pyc *.bin *.whl *.zip *.tar.gz
+# Match the planner casefold policy on case-sensitive and Windows hosts.
+global-exclude [sS][eE][cC][rR][eE][tT]* [cC][rR][eE][dD][eE][nN][tT][iI][aA][lL]* [cC][oO][oO][kK][iI][eE]* [tT][oO][kK][eE][nN]* .[eE][nN][vV]*
+global-exclude */.[gG][iI][tT]/* */__[pP][yY][cC][aA][cC][hH][eE]__/* */.[pP][yY][tT][eE][sS][tT]_[cC][aA][cC][hH][eE]/* */.[cC][aA][cC][hH][eE]/* */[cC][aA][cC][hH][eE]/* */[sS][eE][sS][sS][iI][oO][nN][sS]/* */[pP][rR][oO][fF][iI][lL][eE][sS]/*
+global-exclude */[bB][uU][iI][lL][dD]/* */[dD][iI][sS][tT]/* */[oO][uU][tT][pP][uU][tT]-[sS][dD][kK]/* */[wW][oO][rR][kK]/* */.[vV][eE][nN][vV]/* */[vV][eE][nN][vV]/*
+global-exclude */*.[eE][gG][gG]-[iI][nN][fF][oO]/*

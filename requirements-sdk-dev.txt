@@ -10,3 +10,4 @@ pandas>=2
 plotly>=5
 markdown-it-py>=3,<5
 tomli>=2,<3; python_version < '3.11'
+setuptools>=69

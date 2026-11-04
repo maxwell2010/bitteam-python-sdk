@@ -19,9 +19,32 @@ def tracked_paths(root):
     return output.decode("utf-8").rstrip("\0").split("\0") if output else []
 
 
+def standalone_paths(root):
+    """Read a public source inventory without consulting any enclosing Git repo."""
+    # -I direct script execution omits both the source root and script directory
+    # from sys.path. Load only the explicit, side-effect-free sibling planner.
+    if __package__ in (None, ""):
+        from importlib.util import module_from_spec, spec_from_file_location
+        spec = spec_from_file_location("sdk_source_planner", Path(__file__).with_name("package_source.py"))
+        planner = module_from_spec(spec)
+        spec.loader.exec_module(planner)
+        plan_source_files = planner.plan_source_files
+    else:
+        from scripts_sdk.package_source import plan_source_files
+    root = Path(root)
+    inventory = (path.relative_to(root).as_posix() for path in root.rglob("*")
+                 if path.is_file())
+    return list(plan_source_files(root, paths=inventory))
+
+
+def source_paths(root):
+    root = Path(root)
+    return tracked_paths(root) if (root / ".git").exists() else standalone_paths(root)
+
+
 def check_sources(root, paths=None):
     root = Path(root)
-    paths = tracked_paths(root) if paths is None else list(paths)
+    paths = source_paths(root) if paths is None else list(paths)
     files, errors = set(paths), []
     folded = defaultdict(list)
     for path in paths:
@@ -67,7 +90,7 @@ def main():
     errors = check_sources(args.repo_root)
     if errors:
         raise SystemExit("\n".join(errors))
-    print("Tracked readme, relative Markdown paths and casefold checks passed; no SDK build")
+    print("Source readme, relative Markdown paths and casefold checks passed; no SDK build")
 
 
 if __name__ == "__main__":

@@ -31,3 +31,54 @@ def test_parser_ignores_code_examples_and_resolves_encoded_paths_and_directories
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "My Doc.md").write_text("# Section\n", encoding="utf-8")
     assert check_sources(tmp_path, ["pyproject.toml", "README.md", "docs/My Doc.md"]) == []
+
+
+def standalone_source_fixture(tmp_path):
+    public = {
+        "README.md": "# Synthetic\n[guide](docs/Guide.md)\n",
+        "AGENTS.md": "# Synthetic instructions\n",
+        "MANIFEST.in": "include README.md\n",
+        "pyproject.toml": '[project]\nreadme="README.md"\n',
+        "requirements-sdk.txt": "# Synthetic\n",
+        "requirements-sdk-dev.txt": "# Synthetic\n",
+        ".github/workflows/sdk.yml": "# Synthetic\n",
+        "bitteam_sdk/__init__.py": "# Synthetic\n",
+        "docs/Guide.md": "# Guide\n",
+    }
+    for name, content in public.items():
+        target = tmp_path / name
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+    return tmp_path
+
+
+def test_standalone_source_tree_checks_public_links_without_git_or_artifacts(tmp_path, monkeypatch):
+    import subprocess
+    standalone_source_fixture(tmp_path)
+    # An extracted source tree has no .git, even when its parent is a checkout.
+    def forbidden(*args, **kwargs):
+        raise AssertionError("Standalone documentation check must not require git")
+    monkeypatch.setattr(subprocess, "check_output", forbidden)
+    before = {path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob("*") if path.is_file()}
+    assert check_sources(tmp_path) == []
+    after = {path.relative_to(tmp_path).as_posix() for path in tmp_path.rglob("*") if path.is_file()}
+    assert before == after and not (tmp_path / "output-sdk").exists()
+
+
+def test_standalone_source_documentation_cli_works_with_isolated_python(tmp_path):
+    import shutil
+    import subprocess
+    import sys
+    standalone_source_fixture(tmp_path)
+    source_scripts = Path(__file__).resolve().parents[1] / "scripts_sdk"
+    target_scripts = tmp_path / "scripts_sdk"
+    target_scripts.mkdir()
+    for name in ("check_source_docs.py", "package_source.py"):
+        shutil.copyfile(source_scripts / name, target_scripts / name)
+    result = subprocess.run(
+        [sys.executable, "-I", "-B", str(target_scripts / "check_source_docs.py"),
+         "--repo-root", str(tmp_path)],
+        cwd=tmp_path, text=True, encoding="utf-8", capture_output=True, check=False)
+    assert result.returncode == 0, result.stderr
+    assert "no SDK build" in result.stdout
+    assert not (tmp_path / "output-sdk").exists()

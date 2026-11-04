@@ -102,3 +102,15 @@ recovery passed. Standalone runtime:12 checks passed; full pytest:1362 passed,
 CI at0e25d0c passed Linux4+PG+core; Windows found README-test default-codepage
 UnicodeDecodeError. Explicit UTF-8 read fixes the test; Windows checks stay
 unconditional. See PR for replacement SHA and actual final CI status.
+
+Post20e230 static packaging review: MANIFEST now includes canonical rootREADME,
+AGENTS and docs; legacy text retained. package_source.py now only plans public
+paths/printsJSON, with main guard and no SDKimport/archivewriter/checksums.
+Oldscriptneverexecuted. Setuptools FileList checks manifest without any build.
+Standalone documentation checks use pure public inventory without Git and pass
+on a plain copied tree/-I CLI. Focused30checks passed; finalfull/CI evidence for
+replacementSHA belongs in PR#1. No archives/distributions/version changes.
+
+Final source inventory fullsuite1388passed1DPAPIskip; skip auditpassed.
+Focused30checks also passed from copiedstandalonetree without.git, noarchives.
+See draftPR#1 for finalexactSHA and10-jobCI result; no merge/release.

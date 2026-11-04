@@ -66,6 +66,6 @@ Held-resource owner review: resource.authA can remain unchanged while real
 client.rest.auth becomesB. Added strict owner identity checks in P2P/archive/
 account streams, including held references, queued RPC/HTTP and iterator
 resume. Legacy duck transports without auth remain compatible, real REST owner
-requires exact identity. Full cloud904passed1DPAPI skip, skip audit passed;
-48new regression cases. See TEST_GAPS for red/green and exact boundaries. Same
+requires exact identity. Final full cloud907passed1DPAPI skip, skip audit passed;
+51new regression cases (including the final3stream compatibility cases). See TEST_GAPS for red/green and exact boundaries. Same
 PR#1 only; final CI result is observed per exact SHA in its description.

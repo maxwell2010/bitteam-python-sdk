@@ -316,7 +316,7 @@ account streams12failed/1passed.
 | Real REST owner identity | Requires transport.auth is resource.auth, even when lifecycle numbers match or owner.auth is missing | Shared SessionAuth owner helper5cases |
 | Held P2P reference | Fails before await/dispatch and after JSON, including queued/scheduled mutations, unchanged resource.auth A and B.clear |18cases; anonymous public calls and sameA refresh remain allowed |
 | Held private archive reference | Fails before session acquisition/dispatch and after valid or malformed JSON, before/after B.clear |12cases; public get_trades and sameA refresh remain allowed |
-| Held account stream / iterator | Owner check before hello/sub/request/reauth, inside RPC dispatch/reply boundaries and before/after iterator waits |13cases, including buffered and waiting consumers; no old event is returned after owner switch |
+| Held account stream / iterator | Owner check before hello/sub/request/reauth, inside RPC dispatch/reply boundaries and before/after iterator waits |16cases, including buffered and waiting consumers; no old event is returned after owner switch |
 | Duck-typed compatibility | Legacy transports lacking auth attribute stay usable; explicit mismatch fails; actual BitTeamRestAPI has no missing-attribute fallback | Covered without weakening real-owner checks |
 
 No lazy-property recreation is relied on: previously issued resource references
@@ -326,8 +326,10 @@ consumer is checked when it starts/resumes; direct rest.auth assignment is not
 claimed to synchronously wake all waiting tasks. Reconnect still has no replay
 or atomic L2 guarantee.
 
-Final full cloud suite:904passed,1nativeDPAPI skip (905collected), skip audit
-passed on LinuxPython3.12.14.48new owner regressions; independent agents
+Final full cloud suite:907passed,1nativeDPAPI skip (908collected), skip audit
+passed on LinuxPython3.12.14.51new owner regressions; independent agents
 cross-reviewed and reran the other areas. These counts and fake transports do
 not prove all errors removed or any live financial result. Exact final
 SHA/run/observed CI status is recorded on the same draft PR#1 after API checks.
+
+The initial full owner run had904passed1skip before three final stream owner-compatibility cases were collected; the final full907passed1skip run includes them. Native DPAPI is the sole skip and skip audit passed.

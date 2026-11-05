@@ -93,8 +93,10 @@ timezone-naive UTC; порядок и дубликаты входа не исп�
 для точных денежных значений сохраняйте исходные строки Kline/хранилища.
 
 Локальный ввод можно проверить синтетически на отдельном display:
-`python -I -B scripts_sdk/check_window_prompt_runtime.py` (нужен настроенный
-`DISPLAY` и Tk). Скрипт автоматизирует только диалоги с фиктивным clipboard и
+`python -I -B scripts_sdk/check_window_prompt_runtime.py --disposable-desktop` (нужен настроенный
+`DISPLAY` и Tk). Только disposable desktop: скрипт изменяет реальный глобальный
+OS clipboard синтетическими строками, не запускайте его на пользовательском desktop.
+Скрипт автоматизирует только диалоги и
 запрещает создание HTTP-клиента; вход, отправка кодов и logout не выполняются.
 
 После разрыва history-потока можно явно вызвать
@@ -104,3 +106,14 @@ timezone-naive UTC; порядок и дубликаты входа не исп�
 Подробные границы: [восстановление потоков](bitteam_sdk/RELIABILITY.md).
 Обычный pytest разрешает fake/loopback-сеть и блокирует внешние Python socket
 операции; runtime guard не является ограничителем collection/subprocess/native I/O.
+
+Bounded backfill: `await client.recover_klines(old_subscription, start=start, end=end)`
+возвращает `KlineRecovery` с историческими свечами отдельно от нового итератора.
+`await client.reconcile_book(symbol, old_subscription)` возвращает `ReconciledBook`
+со свежим snapshot и raw-подпиской: `continuity_guaranteed=False`,
+`events_applied=False`.
+Ни один helper не сливает buffered events, не обещает полноту или atomic handoff.
+
+`scripts_sdk/live_extended.py --account-profile ...` — stateful проверка:
+resume/refresh могут сохранять или инвалидировать encrypted cache. Это не pure
+read-only account probe; во время текущего аудита такой режим не запускался.

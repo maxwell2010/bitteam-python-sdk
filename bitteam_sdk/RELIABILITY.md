@@ -91,3 +91,40 @@ Tracked auth I/O остаётся учтённым до завершения д�
 Удалённый исход уже отправленного refresh неизвестен; отмена не означает его
 откат или валидность прежних credentials. Автоматического replay нет.
 Общий API-v2/P2P refresh endpoint по-прежнему не установлен.
+
+## Bounded history backfill и snapshot reconciliation
+
+`await client.recover_klines(old_subscription, start=start, end=end, **bounds)`
+(также standalone `recover_klines`) сначала явно заменяет history-подписку,
+затем читает существующим bounded API окно `[start,end)` в UTC seconds.
+`KlineRecovery.candles` содержит tuple полученных свечей, `subscription` — новый
+итератор; `start/end` нормализованы. Полная валидация bounds происходит до
+reconnect. История и live-буфер возвращаются отдельно: timestamp может пересекаться,
+открытая свеча может измениться, а ограниченная очередь может переполниться.
+SDK не выбирает за приложение приоритет пересекающихся данных, не добавляет
+пустые свечи и не выставляет флаг полноты. Пустой интервал не доказывает packet
+loss или полноту архива. При ошибке/отмене backfill созданная подписка закрывается;
+повторная отмена не теряет cleanup. Транспорт принадлежит caller и остаётся его
+ответственностью. Все старые refs shared history connection получают gap.
+
+`await client.reconcile_book(symbol, old_subscription)` (также standalone
+`reconcile_book(client, symbol, old_subscription)`) проверяет владельца, канал
+orderbook и pairId по существующему public pair lookup, затем reconnect и свежий
+REST snapshot. `ReconciledBook` возвращает snapshot и новый raw-event iterator;
+`continuity_guaranteed=False`, `events_applied=False` неизменяемы. Буфер push
+не сливается со snapshot. Старый gap сохраняется, все прочие refs той же market
+connection также инвалидируются обычным reconnect. Ошибка snapshot закрывает
+созданную подписку, сохраняя исходную ошибку/отмену. Это reconciliation двух
+наблюдений, не восстановленная непрерывная L2-книга.
+
+Доказанного snapshot anchor, monotonic sequence, delta semantics или replay
+контракта нет. Неиспользуемые first/lastUpdateId в старом JS не устанавливают
+этот контракт. Приложение должно самостоятельно выбрать политику дальнейших
+snapshot-проверок и обработки raw events; SDK не выдаёт такую книгу за atomic.
+
+TOTP/device/code-send сериализованы с login. После ожидания проверяются
+owner/lifecycle/state, поэтому старый challenge не пересекает повторный вход и
+поздний ответ не понижает READY. При ошибке или отмене lock освобождается для
+явной новой попытки; автоматического re-login/OTP нет. Контекстные менеджеры
+client/REST и owned history cleanup сохраняют первичную ошибку/отмену; ошибка
+самостоятельного close по-прежнему видима и не означает successful cleanup.

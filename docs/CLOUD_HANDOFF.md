@@ -20,8 +20,8 @@ python -m pytest -c tests_sdk/pytest.ini tests_sdk -ra --junitxml=work/sdk-test-
 python scripts_sdk/check_test_skips.py work/sdk-test-results.xml
 ```
 
-Последний полный локальный результат: **1524 passed, 1 native Windows DPAPI
-skip**, 1525 collected, Linux Python 3.12.14; skip audit прошёл (auth/recovery follow-up 2026-11-05).
+Последний полный локальный результат: **1592 passed, 1 native Windows DPAPI
+skip**, 1593 collected, Linux Python 3.12.14; skip audit прошёл (bounded reconciliation follow-up 2026-11-05).
 Обычный sandbox запрещает локальные sockets; для HTTPS-фикстур нужен только
 доступ исполнителя к локальным тестовым сокетам, без расширения HTTP allowlist.
 Точный финальный SHA/run/наблюдённый статус CI записываются в описании PR после
@@ -156,3 +156,22 @@ Finalauth/recoveryfull1524passed1nativeDPAPIskip (1525collected),skipaudit and
 sourcechecks passed. Permanentruntimeguard active throughout pytest,66newcases
 plusindependentcrossreviews. Core-onlysource-I smoke34exports/4optionalsabsent
 passed;no installedSDK/wheel. NewexactSHA10jobs inPR#1, don'treuse oldheadCI.
+
+## Backfill/L2/auth follow-up baseline2bb21f1
+
+Baseline1524pass1DPAPIskip+audit. Newexplicit recover_klines returns bounded
+historytuple+newiterator separately;reconcile_book returns freshsnapshot+rawref,
+continuity_guaranteed/events_applied bothFalse. No merge/completeness/replay/
+atomicL2/serversequence claim. Reconnect invalidates all refs sharedconnection.
+Fixedconfirmed latechallenge downgrade, ownedhistory/context errorprecedence,
+ambientDecimalEmax/traps and live_extended diagnosticphase boundaries. Relogin
+refresh/logout negativeprobes preserve newstate without productionchange.
+GUI requires explicitdisposable-desktop; realglobalclipboard syntheticonly,
+Windowsstep onlygithub-hosted existingmatrix (10jobs); actualCI stillseparate.
+Stateful --account-profile mayrestore/refresh/persist/invalidatecache, neverrun
+it duringaudit. No realcache/account/OTP/finance/live/install/build/release.
+
+Final boundedreconciliationfull1592passed1nativeDPAPIskip (1593collected),
+skipaudit/sourcepassed;core-I38exports/4optionalsabsent passed. LinuxactualGUI6
+explicitflagpassed; verifyWindowsGUIstep/logs separately from overall10jobstatus.
+Independentcrossreviewcomplete. Exactnewhead/CI remainsinPR#1; no build/merge.

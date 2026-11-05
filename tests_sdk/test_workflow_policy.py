@@ -156,3 +156,19 @@ def test_core_source_smoke_uses_fresh_core_only_venv_and_explicit_isolated_sourc
         assert not any(forbidden in command for forbidden in (
             "python -m build", "check_wheel", "pip install .", "requirements-sdk-dev", "[charts]", "[postgres]", "[sqlite]"))
         assert "${{ secrets." not in command
+
+
+def test_windows_gui_runtime_is_explicitly_limited_to_disposable_hosted_desktop():
+    config = workflow()
+    assert len(config['jobs']) == 3
+    job = config['jobs']['sdk']
+    assert job['runs-on'] == '${{ matrix.os }}'
+    steps = [step for step in job['steps'] if 'check_window_prompt_runtime.py' in step.get('run', '')]
+    assert len(steps) == 1
+    assert steps[0]['if'] == "matrix.os == 'windows-latest' && runner.os == 'Windows' && runner.environment == 'github-hosted'"
+    for runner_os, environment, expected in [('Windows', 'github-hosted', True),
+                                             ('Windows', 'self-hosted', False),
+                                             ('Linux', 'github-hosted', False)]:
+        assert condition(steps[0]['if'], {'matrix': {'os': 'windows-latest'},
+                                        'runner': {'os': runner_os, 'environment': environment}}) is expected
+    assert steps[0]['run'] == 'python -I -B scripts_sdk/check_window_prompt_runtime.py --disposable-desktop'

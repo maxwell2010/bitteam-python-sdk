@@ -1,8 +1,11 @@
 """Exercise the real Tk dialog on an isolated display with synthetic input only.
 
-Run with DISPLAY pointing at a disposable X server. No account flow is invoked;
-this is a GUI runtime check, not an authentication or financial integration.
+Requires --disposable-desktop: this uses the REAL GLOBAL OS CLIPBOARD with
+synthetic strings. Never run on a user's desktop. On Linux, DISPLAY must point
+at a disposable X server. No account flow is invoked; this is not an
+authentication or financial integration.
 """
+import argparse
 import asyncio
 import json
 from pathlib import Path
@@ -105,6 +108,19 @@ def run_case(label, driver, expected):
     def factory(*args, **kwargs):
         root = original(*args, **kwargs)
         roots.append(root)
+        destroy = root.destroy
+
+        def clear_and_destroy():
+            try:
+                # Timed focus/watchdog callbacks must not outlive this dialog
+                # and surface as Tcl errors in the next synthetic mainloop.
+                for callback in root.tk.call("after", "info"):
+                    root.after_cancel(callback)
+                root.clipboard_clear()
+            finally:
+                destroy()
+
+        root.destroy = clear_and_destroy
 
         def drive():
             try:
@@ -143,7 +159,12 @@ def forbidden_http(*args, **kwargs):
     raise AssertionError("GUI runtime check must not create an HTTP client")
 
 
-def main():
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--disposable-desktop", action="store_true",
+                        help="Acknowledge this is an isolated desktop; global clipboard will be changed")
+    if not parser.parse_args(argv).disposable_desktop:
+        parser.error("--disposable-desktop is required before any Tk or clipboard access")
     cases = [
         ("password-controls", "BitTeam password (hidden): ", secret_controls, "synthetic replacement"),
         ("email-paste", "BitTeam email (hidden): ", email_controls, "synthetic@example.invalid"),

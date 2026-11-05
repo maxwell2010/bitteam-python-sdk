@@ -732,3 +732,42 @@ Core-only source smoke under -I passed34exports (including KlineStreamGap),
 with pandas/plotly/asyncpg/aiosqlite absent and HTTP/cache prohibited; not an
 installed-wheel check. Independent cross-reviews passed. Exact replacementSHA
 and10-job GitHub CI are recorded in the same draftPR#1, separately from baseline.
+
+## Backfill/L2 reconciliation and caller-assisted auth after2bb21f1
+
+Baseline1524passed1nativeDPAPIskip+skipaudit passed, default runtime network
+guard active. New features compose existing public history/pair/snapshot/SUB
+contracts only; no new backend endpoint/response/sequence has been inferred.
+
+| Area | Implemented/verified offline result | Remaining boundary |
+| --- | --- | --- |
+| Concurrent challenge steps | Confirmed lateTOTP response downgraded READY while tokens remained. TOTP/deviceconfirm/code-send now share loginlock; recheckowner/lifecycle/requiredstate afterwait. Failed/cancelled steps release lock; queuedoldstep cannot crossrelogin. | Fake UID/auth/spot responses, not server2FA bypass or actual delivery proof. Caller explicitly supplies re-login/codes. |
+| Relogin with old refresh/logout | Four controlled negative probes: stale refreshsuccess/autherror and queuedlogout/recoveryrefresh cancel after explicitfreshlogin; newREADYtokens/RAMcookies retained with no stale extra dispatch. | Existing behavior confirmed, no production patch/automatic login/general-token refresh. Remote expiry/revocation unknown. |
+| Owned history/context cleanup | Confirmed iter_klines closefailure masked primaryprotocolerror/cancel; same primarycancel masking in client context. Preserve primary while attemptingcleanup; no-primary close/aclose error remains visible. | Fake ownedprovider/session, no guarantee transport close succeeded when it fails; explicit subsequentclose still exposes failure. |
+| Bounded history recovery | New KlineRecovery/recover_klines + client facade validate caller[start,end)bounds, reconnect then boundedfetch; return historicaltuple separately from replacement iterator. Protocolerror/cancel/doublecancel cleanup exercised. | Composite feature, not backendbugfix. No merge/completeness/atomic handoff/fabricatedbars. Emptychunks valid; caller arbitrates overlap and open-bar changes. Bounded livequeue may overflow. |
+| Orderbook Decimal context | Reported depth1e10 with ambientEmax9 reproduced Overflow; aggregation/spread/mid/depth/imbalance now use isolatedContext including exponent limits/traps/rounding. | Supported finite precision bounds retained; no new server precision or liquidity semantics. |
+| Explicit L2 reconciliation | New ReconciledBook/reconcile_book + client facade: owner/channel/pair validation, market reconnect, freshRESTsnapshot, rawsubscription separate. Both flags permanentlyFalse: continuity_guaranteed/events_applied. Snapshoterror/cancel/doublecancel close replacement; oldgaps retained. | No buffered-event merge. All refs sharedmarket connection invalidated. No proven snapshotanchor/monotonicsequence/deltarules/replay; oldJS no-op UpdateId fields not proof. |
+| Extended diagnostic script | RAMrepro acquisition/resume/context failures escaped wrapper and aborted report. All phases/acquisition/close now sanitized; plainintstatus only, unavailable session explicitfailure; cancellation remains cancellation. | Script was NOT run live. --account-profile is STATEFUL restore/refresh/cachepersist/invalidate (possibledelete), not pure read-only, prohibited during this audit. No realprofile used. |
+| GUI runtime policy | Driver requires --disposable-desktop before Tk/clipboard, cleans syntheticclipboard and scheduledcallbacks. Existing Windows matrix step gated to github-hosted disposable runner; jobcount remains10. Linux realTk/Xorg6cases passed with explicitflag. | Uses REAL GLOBAL OS clipboard containing syntheticdata, not a fakeclipboard. Never run on userdesktop. ActualWindows result requires new exactSHA CI; generated Tk keys do not prove physicalRU layout. |
+
+Independent reviews cover history/L2 features, repeatcancel cleanup, authlocks,
+relogin negatives, diagnostics and contextcleanup. These are fake/local runtime
+checks with networkguard, distinct from saved static frontend facts/historical
+live. No BitTeam live requests, real account/OTP/financial operations, usercache,
+secret access, SDKinstall, ZIP/wheel/sdist, version/release/tag/publication/merge.
+
+Offline-addressed gaps: bounded recovery orchestration, exception precedence,
+step serialization, Decimal isolation, diagnostic phase boundaries. Intentional
+caller policy remains: checkpoint/bounds, overlapping/open candle arbitration,
+snapshot polling and raw-event interpretation. Server/account-required gaps:
+actual auth expiry/renewal/revocation/delivery, archive availability/retention,
+financial outcomes/finality/IDlinks and ordered live snapshot+delta continuity.
+No promise that all SDK/backend defects/contracts are now resolved.
+
+Final local bounded-reconciliation suite: **1592 passed,1 native DPAPI skip**,
+1593collected, Linux Python3.12.14; skip audit/source checks passed. Core-only
+-I source smoke passed38exports with4optionals absent and HTTP/cache forbidden;
+no installed-wheel/SDKinstall proof is claimed. Independentreviews passed.
+ActualLinuxGUI6cases passed after explicitdisposable flag. WindowsGUI must be
+read from actual CI step outcome/logs, not merely job success (a skippedstep is
+not GUI runtime evidence). Exact replacementSHA/10jobs recorded in draftPR#1.

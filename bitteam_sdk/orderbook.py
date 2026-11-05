@@ -4,8 +4,8 @@ The exchange's live publications are not assumed to be full snapshots or
 ordered deltas. No historical book is fabricated from today's snapshot.
 """
 import asyncio
-from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation, localcontext
+from dataclasses import dataclass, field
+from decimal import Context, Decimal, InvalidOperation, MAX_EMAX, MIN_EMIN, localcontext
 import json
 from pathlib import Path
 import sqlite3
@@ -23,6 +23,11 @@ def exact_context_size(values, count=1):
         cost = max(cost, digits + abs(exponent))
     return max(80, 2 * cost + len(str(count)) + 8)
 
+
+def _book_context(values, count=1):
+    # Precision, exponent limits, rounding and traps must all be independent
+    # of the embedding application's Decimal context.
+    return Context(prec=exact_context_size(values, count), Emax=MAX_EMAX, Emin=MIN_EMIN)
 
 @dataclass(frozen=True)
 class BookLevel:
@@ -59,8 +64,7 @@ class OrderBookSnapshot:
                 if not price.is_finite() or not amount.is_finite() or price <= 0 or amount < 0:
                     raise ValueError("Invalid orderbook values")
                 parsed.append((price, amount))
-            with localcontext() as context:
-                context.prec = exact_context_size([v for row in parsed for v in row], len(parsed))
+            with localcontext(_book_context([v for row in parsed for v in row], len(parsed))):
                 for price, amount in parsed:
                     if amount:
                         combined[price] = combined.get(price, Decimal(0)) + amount
@@ -83,16 +87,14 @@ class OrderBookSnapshot:
     def spread(self):
         if not self.bids or not self.asks:
             return None
-        with localcontext() as context:
-            context.prec = exact_context_size([self.best_ask, self.best_bid])
+        with localcontext(_book_context([self.best_ask, self.best_bid])):
             return self.best_ask - self.best_bid
 
     @property
     def mid_price(self):
         if not self.bids or not self.asks:
             return None
-        with localcontext() as context:
-            context.prec = exact_context_size([self.best_ask, self.best_bid])
+        with localcontext(_book_context([self.best_ask, self.best_bid])):
             return (self.best_ask + self.best_bid) / 2
 
     def depth(self, side, *, levels=None):
@@ -102,8 +104,7 @@ class OrderBookSnapshot:
             raise ValueError("levels must be positive")
         base, quote, result = Decimal(0), Decimal(0), []
         selected = getattr(self, side)[:levels]
-        with localcontext() as context:
-            context.prec = exact_context_size([v for row in selected for v in (row.price, row.amount)], len(selected))
+        with localcontext(_book_context([v for row in selected for v in (row.price, row.amount)], len(selected))):
             for row in selected:
                 base += row.amount
                 quote += row.price * row.amount
@@ -114,14 +115,69 @@ class OrderBookSnapshot:
         bids, asks = self.depth("bids", levels=levels), self.depth("asks", levels=levels)
         buy = bids[-1]["cumulative_base"] if bids else Decimal(0)
         sell = asks[-1]["cumulative_base"] if asks else Decimal(0)
-        with localcontext() as context:
-            context.prec = exact_context_size([buy, sell])
+        with localcontext(_book_context([buy, sell])):
             return (buy - sell) / (buy + sell) if buy + sell else None
 
     def as_dict(self):
         return {"symbol": self.symbol, "bids": [[str(r.price), str(r.amount)] for r in self.bids],
                 "asks": [[str(r.price), str(r.amount)] for r in self.asks],
                 "received_at_ms": self.received_at_ms, "source": self.source}
+
+
+@dataclass(frozen=True)
+class ReconciledBook:
+    """A fresh REST observation and raw stream reference, without continuity."""
+    snapshot: OrderBookSnapshot
+    subscription: object
+    continuity_guaranteed: bool = field(default=False, init=False)
+    events_applied: bool = field(default=False, init=False)
+
+
+async def reconcile_book(client, symbol, oldsub):
+    """Explicitly replace a public book stream, then acquire a REST snapshot.
+
+    The market connection retires all its old subscriptions; only oldsub's path
+    is restored. Old references retain their gap notification. Publications
+    queued during the REST read remain raw and are NEVER applied to the book.
+    There is no proven snapshot anchor, delta order, atomic handoff or replay.
+    On failure/cancellation, close the newly created subscription without
+    replacing the initiating exception. Retry is controlled by the caller.
+    """
+    from .market_streams import MarketSubscription, pair_identity
+
+    name = symbol_name(symbol)
+    if not isinstance(oldsub, MarketSubscription) or oldsub.channel != "orderbook":
+        raise ValueError("Expected a public orderbook subscription")
+    market = client.market
+    if oldsub.client is not market:
+        raise ValueError("Orderbook subscription belongs to another market stream")
+    pair_id = await client.rest._pair_id(name)
+    path = "/orderbooks/" + pair_identity(pair_id)
+    if oldsub.path != path:
+        raise ValueError("Orderbook subscription belongs to another pair")
+    replacements = await market.reconnect([oldsub])
+    subscription = replacements[path]
+    try:
+        snapshot = await client.get_orderbook_snapshot(name)
+        if not isinstance(snapshot, OrderBookSnapshot) or snapshot.symbol != name.upper():
+            raise ValueError("Expected an orderbook snapshot for the requested symbol")
+        return ReconciledBook(snapshot, subscription)
+    except BaseException:
+        # Closing a live subscription may await its ACK. A second cancellation
+        # must not abandon that one cleanup or replace the original failure.
+        cleanup = asyncio.create_task(subscription.close())
+        while not cleanup.done():
+            try:
+                await asyncio.shield(cleanup)
+            except asyncio.CancelledError:
+                continue
+            except BaseException:
+                break
+        try:
+            cleanup.result()
+        except BaseException:
+            pass
+        raise
 
 
 class MarketDataRecorder:

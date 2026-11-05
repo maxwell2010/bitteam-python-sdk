@@ -233,43 +233,58 @@ class SessionAuth:
             raise RuntimeError(f"Authentication step requires {state.value}")
 
     async def submit_totp(self, code: str):
-        self._require(AuthState.TWO_FACTOR_REQUIRED)
-        if not isinstance(code, str) or len(code) != 6 or not code.isascii() or not code.isdigit():
-            raise ValueError("TOTP code must contain six ASCII digits")
-        response = await self._auth_request("/clients/web/login-2fa", {"uid": self._uid, "google2fa_secret": code})
-        return self._transition(self._data(response), after_totp=True)
+        self._assert_owner()
+        lifecycle = self._lifecycle
+        async with self._login_lock:
+            self._assert_owner()
+            self._assert_lifecycle(lifecycle)
+            self._require(AuthState.TWO_FACTOR_REQUIRED)
+            if not isinstance(code, str) or len(code) != 6 or not code.isascii() or not code.isdigit():
+                raise ValueError("TOTP code must contain six ASCII digits")
+            response = await self._auth_request("/clients/web/login-2fa", {"uid": self._uid, "google2fa_secret": code})
+            return self._transition(self._data(response), after_totp=True)
 
     async def send_device_code(self):
-        self._require(AuthState.DEVICE_CONFIRMATION_REQUIRED)
-        response = await self._auth_request("/authorize/send-code", {"uid": self._uid})
-        if not isinstance(response, dict):
-            raise AuthenticationError(502)
-        data = response.get("data")
-        # Only expose a channel if the server actually supplies one.
-        if isinstance(data, dict) and data.get("delivery_channel") in ("email", "telegram"):
-            self._delivery_channel = data["delivery_channel"]
-        return LoginResult(self.state, self._delivery_channel, self._lifecycle)
+        self._assert_owner()
+        lifecycle = self._lifecycle
+        async with self._login_lock:
+            self._assert_owner()
+            self._assert_lifecycle(lifecycle)
+            self._require(AuthState.DEVICE_CONFIRMATION_REQUIRED)
+            response = await self._auth_request("/authorize/send-code", {"uid": self._uid})
+            if not isinstance(response, dict):
+                raise AuthenticationError(502)
+            data = response.get("data")
+            # Only expose a channel if the server actually supplies one.
+            if isinstance(data, dict) and data.get("delivery_channel") in ("email", "telegram"):
+                self._delivery_channel = data["delivery_channel"]
+            return LoginResult(self.state, self._delivery_channel, self._lifecycle)
 
     async def confirm_device(self, code: str, *, remember=False):
-        self._require(AuthState.DEVICE_CONFIRMATION_REQUIRED)
-        if not isinstance(code, str) or len(code) != 4 or not code.isascii() or not code.isdigit():
-            raise ValueError("Device code must contain four ASCII digits")
-        response = await self._auth_request("/authorize/check-code", {
-            "uid": self._uid, "code": int(code), "is_remember": bool(remember)})
-        if not isinstance(response, dict):
-            raise AuthenticationError(502)
-        # The web app treats a truthy data response as confirmation success.
-        data = response.get("data")
-        if not data or (isinstance(data, dict) and (data.get("ok") is False or data.get("is_authorize") is False)):
-            raise AuthenticationError(401)
-        if isinstance(data, dict) and "is_authorize" in data:
-            authorized = data["is_authorize"]
-            # Match the existing boolean/numeric 0/1 transition contract;
-            # a present unknown flag is not confirmation of authorization.
-            if not (authorized is True or (type(authorized) is int and authorized == 1)):
+        self._assert_owner()
+        lifecycle = self._lifecycle
+        async with self._login_lock:
+            self._assert_owner()
+            self._assert_lifecycle(lifecycle)
+            self._require(AuthState.DEVICE_CONFIRMATION_REQUIRED)
+            if not isinstance(code, str) or len(code) != 4 or not code.isascii() or not code.isdigit():
+                raise ValueError("Device code must contain four ASCII digits")
+            response = await self._auth_request("/authorize/check-code", {
+                "uid": self._uid, "code": int(code), "is_remember": bool(remember)})
+            if not isinstance(response, dict):
+                raise AuthenticationError(502)
+            # The web app treats a truthy data response as confirmation success.
+            data = response.get("data")
+            if not data or (isinstance(data, dict) and (data.get("ok") is False or data.get("is_authorize") is False)):
                 raise AuthenticationError(401)
-        self.state = AuthState.GENERAL_SESSION_READY
-        return LoginResult(self.state, self._delivery_channel, self._lifecycle)
+            if isinstance(data, dict) and "is_authorize" in data:
+                authorized = data["is_authorize"]
+                # Match the existing boolean/numeric 0/1 transition contract;
+                # a present unknown flag is not confirmation of authorization.
+                if not (authorized is True or (type(authorized) is int and authorized == 1)):
+                    raise AuthenticationError(401)
+            self.state = AuthState.GENERAL_SESSION_READY
+            return LoginResult(self.state, self._delivery_channel, self._lifecycle)
 
     def _install_tokens(self, response):
         self._assert_owner()

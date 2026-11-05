@@ -215,6 +215,23 @@ class BitTeamClient(ServiceMethods):
         from .history import fetch_klines
         return await fetch_klines(symbol, interval, start=start, end=end, source=self.history, **bounds)
 
+    async def recover_klines(self, subscription, *, start, end, **bounds):
+        """Return bounded history and a replacement iterator without atomicity."""
+        from .history import recover_klines
+        from .websocket import KlineSubscription
+        if self._closed:
+            raise RuntimeError("Client is closed")
+        if not isinstance(subscription, KlineSubscription) or subscription.client is not self._history:
+            raise ValueError("Expected a history subscription belonging to this client")
+        return await recover_klines(subscription, start=start, end=end, **bounds)
+
+    async def reconcile_book(self, symbol, subscription):
+        """Return a fresh snapshot and subscription; raw updates are not applied."""
+        from .orderbook import reconcile_book
+        if self._closed:
+            raise RuntimeError("Client is closed")
+        return await reconcile_book(self, symbol, subscription)
+
     def iter_klines(self, symbol, interval="1m", *, start, end, **bounds):
         from .history import iter_klines
         return iter_klines(symbol, interval, start=start, end=end, source=self.history, **bounds)
@@ -252,5 +269,11 @@ class BitTeamClient(ServiceMethods):
         await self.rest._get_session()
         return self
 
-    async def __aexit__(self, *exc):
-        await self.close()
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        try:
+            await self.close()
+        except BaseException:
+            # Cleanup failure stays observable through close(), but must not
+            # replace a request failure or cancellation already in flight.
+            if exc_type is None:
+                raise

@@ -391,5 +391,11 @@ class BitTeamRestAPI:
         await self._get_session()
         return self
 
-    async def __aexit__(self, *exc):
-        await self.close()
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        try:
+            await self.close()
+        except BaseException:
+            # Cleanup failure stays observable through close(), but must not
+            # replace a request failure or cancellation already in flight.
+            if exc_type is None:
+                raise

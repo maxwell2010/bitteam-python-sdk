@@ -685,3 +685,12 @@ regressions cover the reproduced boundaries; count is not an all-bugs claim.
 Independent cross-reviews passed for cleanup, WS, REST/archive and diagnostics.
 Actual GUI6checks remain a separate runtime result, not mocked/default pytest
 or Windows proof. No new skips; final exact-SHA10-job CI is recorded in PR#1.
+
+CI at9822c15 exposed5 new fake diagnostic tests importing the optional PostgreSQL
+module before their asyncpg stub. This was fixture isolation, not an actual PG
+runtime failure (the separate service job passed12 checks). Stubs for both the
+driver and storage class now precede script import, preserving optionality and
+restoring original modules after each case. Independent14focused cases and the
+FULL1458pass1DPAPIskip suite passed with asyncpg explicitly unavailable via
+sys.modules import blocking; skip audit passed. No dependency/skip was added.
+Exact replacement SHA/run belongs in PR#1;9822c15 matrix failure is not success.

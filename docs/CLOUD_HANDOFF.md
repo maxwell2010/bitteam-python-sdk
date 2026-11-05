@@ -132,3 +132,8 @@ freeze ZIP/wheel/sdist/SDKinstall/version/releases сохраняется. Но�
 skipauditpassed.70новыхрегрессий+independentcrossreview;actualGUI6 отдельно.
 Старый failed-ACK fakefixture обновлён на явный replacement fake socket после
 retirement,51relatedpassed; никаких liveгарантий из этого не выводить.
+
+CI9822c15 matrix found fake script tests imported asyncpg before mocking;
+actualPG12/corepassed. Teststubs now installedbeforeimport, no optionaldependency
+added. Finalfull1458pass1skip with asyncpg explicitlyblocked+skipauditpassed;
+independentreview14focusedpassed. ReplacementexactSHA/10jobs inPR#1.

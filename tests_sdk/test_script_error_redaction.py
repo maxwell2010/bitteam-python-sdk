@@ -54,7 +54,6 @@ async def test_public_report_only_exports_integer_error_metadata(monkeypatch, ca
 
 @pytest.mark.parametrize('stage', ['connect', 'schema', 'init', 'drop', 'close'])
 def test_storage_cli_sanitizes_setup_and_cleanup_failures(monkeypatch, capsys, stage):
-    module = load('check_storage_runtime')
     events = []
     async def execute(sql):
         events.append(sql.split()[0])
@@ -73,8 +72,11 @@ def test_storage_cli_sanitizes_setup_and_cleanup_failures(monkeypatch, capsys, s
         async def init(self):
             if stage == 'init': raise RuntimeError(SECRET)
         async def close(self): events.append('store.close')
+    # Both dependencies must be fake BEFORE importing the standalone script.
+    # The normal SDK matrix intentionally does not install optional asyncpg.
     monkeypatch.setitem(sys.modules, 'asyncpg', SimpleNamespace(connect=connect, __version__='synthetic'))
-    monkeypatch.setattr(module, 'PostgresStorage', Store)
+    monkeypatch.setitem(sys.modules, 'bitteam_sdk.storage.postgres', SimpleNamespace(PostgresStorage=Store))
+    module = load('check_storage_runtime')
     for name in vars(module).copy():
         if name.startswith('check_'): monkeypatch.setattr(module, name, AsyncMock())
     monkeypatch.setattr(sys, 'argv', ['check_storage_runtime.py', '--postgres-dsn', 'postgresql://synthetic:synthetic@localhost/test'])

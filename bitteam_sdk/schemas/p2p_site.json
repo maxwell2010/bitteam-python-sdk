@@ -11,13 +11,35 @@
     "excluded": {
       "getRequestCabinet": "arbitrary caller path; no fixed template, intentionally not exposed"
     },
-    "other_page_direct_axios_operations": "auth/user added from direct callsite; journal/other paths not claimed complete",
+    "other_page_direct_axios_operations": "23 derived callsite operations, including user-relayed fixed RAM routes and targeted journal prop-to-request chains; not complete all-JS coverage",
     "private_live_verified": false,
     "derived_callsite_operations": [
       "get_accounts",
-      "get_withdrawal"
+      "get_withdrawal",
+      "create_withdrawal_body",
+      "create_withdrawal_to_stock_body",
+      "get_currencies_with_commission",
+      "create_wallbtc_operation",
+      "remove_blacklist_users",
+      "get_email_notification_status",
+      "get_app_tokens",
+      "get_business_payments",
+      "add_payment_system_temp",
+      "get_subscriptions",
+      "get_active_subscription",
+      "subscribe_subscription",
+      "renew_subscription",
+      "get_boost_price",
+      "get_subscription_price",
+      "get_notifications",
+      "get_active_notifications",
+      "read_all_notifications",
+      "create_internal_stock_transfer",
+      "get_account_transaction_journal",
+      "get_transaction_journal"
     ],
-    "derived_callsite_unique_routes": 2
+    "derived_callsite_unique_routes": 22,
+    "total_operations": 84
   },
   "operations": {
     "create_new_withdraw": {
@@ -959,6 +981,517 @@
       "source_offset": 6125,
       "source_excerpt": ";case 14:case\"end\":return r.stop()}},r,null,[[0,10]])})),function(t,n){return r.apply(this,arguments)}},y=function(t){var r;return r=(0,e.Z)(o().mark(function r(n,e){var a,i,l,p;return o().wrap(function(r){for(;;)switch(r.prev=r.next){case 0:return r.prev=0,a=e().authReducer.token,r.next=4,c.Z.get(\"/transactions/get-withdraw-by-id/\".concat(t),{headers:{authorization:\"Bearer \".concat(a)}});case 4:return i=r.sent,r.abrupt(\"return\",i.data.data);case 8:return r.prev=8,r.t0=r.catch(0),null!==r.t0&&void 0!==r.t0&&null!==(l=r.t0.response)&&void 0!==l&&null!==(l=l.data)&&void 0!==l&&l.errors?(p=r.t0.response.data.errors,(0,s.Z)(p)):u.Am.error((0,h.jsx)(d.Z,{code:\"cabinet.something_went_wrong\"})),r.abrupt(\"return\",{});case 12:case\"end\":return r.stop()}},r,null,[[0,8]])})),function(t,n){return r.apply(this,arguments)}},x=function(t){var r;return r=(0,e.Z)(o().mark(function r(n,e){var a,l,p,f;return o().wrap(function(r){for(;;)switch(r.prev=r.next){case 0:return r.prev=0,a=e().authReducer.token,r",
       "private_live_verified": false
+    },
+    "create_withdrawal_body": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "POST",
+      "path": "/account/create-withdraw",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "Explicit caller dictionary; currency_id selector confirmed, remaining required server fields and internal hash contract unverified",
+      "body_required": true,
+      "known_body_keys": [
+        "currency_id"
+      ],
+      "body_currency_id_policy": "standard_not_95",
+      "description": "Fixed body-based frontend withdrawal callsite; no automatic route switching, hash generation, confirmation or retry. Distinct from create_new_withdraw query helper.",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/6034-f2e976244927be8e.js",
+      "source_sha256": "3b46ec340896bc7fa2673c9b710798220aad5e83fd822515b12c8c027cdec685",
+      "source_offset": 5295,
+      "source_offset_is_approximate": true,
+      "source_excerpt": "c.Z.post(95===t.currency_id?\"/account/create-withdraw-to-stock\":\"/account/create-withdraw\",t,{headers:{authorization:\"Bearer \".concat(a)}})",
+      "evidence_observation": "user-reported public static GET HTTP200; SHA256 matches saved source",
+      "private_live_verified": false,
+      "query_policy": "none",
+      "response_contract": "User-reported callsite extracts response.data.data.id; no link to orderId or spot transaction.id is established",
+      "response_shape": "withdrawal_create"
+    },
+    "create_withdrawal_to_stock_body": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "POST",
+      "path": "/account/create-withdraw-to-stock",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "Explicit caller dictionary; currency_id selector confirmed, remaining required server fields and internal hash contract unverified",
+      "body_required": true,
+      "known_body_keys": [
+        "currency_id"
+      ],
+      "body_currency_id_policy": "stock_95",
+      "description": "Fixed body-based frontend withdrawal callsite; no automatic route switching, hash generation, confirmation or retry. Distinct from create_new_withdraw query helper.",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/6034-f2e976244927be8e.js",
+      "source_sha256": "3b46ec340896bc7fa2673c9b710798220aad5e83fd822515b12c8c027cdec685",
+      "source_offset": 5295,
+      "source_offset_is_approximate": true,
+      "source_excerpt": "c.Z.post(95===t.currency_id?\"/account/create-withdraw-to-stock\":\"/account/create-withdraw\",t,{headers:{authorization:\"Bearer \".concat(a)}})",
+      "evidence_observation": "user-reported public static GET HTTP200; SHA256 matches saved source",
+      "private_live_verified": false,
+      "query_policy": "none",
+      "response_contract": "User-reported callsite extracts response.data.data.id; no link to orderId or spot transaction.id is established",
+      "response_shape": "withdrawal_create"
+    },
+    "get_currencies_with_commission": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "GET",
+      "path": "/data/currency/with-commission",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "response_shape": "raw_json",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+      "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+      "source_offset_method_start": 525131,
+      "reported_contract": "HTTP response.data; commission fields remain raw",
+      "evidence_observation": "user-relayed local RAM static inventory; 10 linked JS inspected, not a complete all-JS inventory; no cloud fetch",
+      "private_live_verified": false
+    },
+    "create_wallbtc_operation": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "POST",
+      "path": "/wallbtc/operations/create",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "Explicit caller dictionary; server field schema not established",
+      "response_shape": "ram_data",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+      "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+      "source_offset_method_start": 529881,
+      "reported_contract": "Unknown explicit body; response.data.data",
+      "evidence_observation": "user-relayed local RAM static inventory; 10 linked JS inspected, not a complete all-JS inventory; no cloud fetch",
+      "private_live_verified": false,
+      "body_required": true
+    },
+    "remove_blacklist_users": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "POST",
+      "path": "/user/blacklist/remove-users",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "response_shape": "raw_json",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+      "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+      "source_offset_method_start": 535124,
+      "reported_contract": "Explicit null body; response.data",
+      "evidence_observation": "user-relayed local RAM static inventory; 10 linked JS inspected, not a complete all-JS inventory; no cloud fetch",
+      "private_live_verified": false,
+      "body_policy": "null"
+    },
+    "get_email_notification_status": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "GET",
+      "path": "/user/notification-status-email",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "response_shape": "raw_json",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+      "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+      "source_offset_method_start": 537267,
+      "reported_contract": "response.data",
+      "evidence_observation": "user-relayed local RAM static inventory; 10 linked JS inspected, not a complete all-JS inventory; no cloud fetch",
+      "private_live_verified": false
+    },
+    "get_app_tokens": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "GET",
+      "path": "/user/get-app-tokens",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "response_shape": "ram_tokens",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+      "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+      "source_offset_method_start": 539496,
+      "reported_contract": "response.data.tokens",
+      "evidence_observation": "user-relayed local RAM static inventory; 10 linked JS inspected, not a complete all-JS inventory; no cloud fetch",
+      "private_live_verified": false
+    },
+    "get_business_payments": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "GET",
+      "path": "/user/business/get-payments",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "response_shape": "ram_data",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+      "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+      "source_offset_method_start": 540274,
+      "reported_contract": "response.data.data",
+      "evidence_observation": "user-relayed local RAM static inventory; 10 linked JS inspected, not a complete all-JS inventory; no cloud fetch",
+      "private_live_verified": false
+    },
+    "add_payment_system_temp": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "POST",
+      "path": "/user/add-payment-systems-temp",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "Explicit caller dictionary; server field schema not established",
+      "response_shape": "ram_status_data",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+      "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+      "source_offset_method_start": 540773,
+      "reported_contract": "Unknown explicit body; checks response.data.status and reads response.data.data",
+      "evidence_observation": "user-relayed local RAM static inventory; 10 linked JS inspected, not a complete all-JS inventory; no cloud fetch",
+      "private_live_verified": false,
+      "body_required": true
+    },
+    "get_subscriptions": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "GET",
+      "path": "/subscription/list",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "response_shape": "ram_subscription_list",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+      "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+      "source_offset_method_start": 541838,
+      "reported_contract": "response.data.data; consumer reads [0].is_auto",
+      "evidence_observation": "user-relayed local RAM static inventory; 10 linked JS inspected, not a complete all-JS inventory; no cloud fetch",
+      "private_live_verified": false
+    },
+    "get_active_subscription": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "GET",
+      "path": "/subscription/active",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "response_shape": "ram_data",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+      "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+      "source_offset_method_start": 542292,
+      "reported_contract": "response.data.data",
+      "evidence_observation": "user-relayed local RAM static inventory; 10 linked JS inspected, not a complete all-JS inventory; no cloud fetch",
+      "private_live_verified": false
+    },
+    "subscribe_subscription": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "POST",
+      "path": "/subscription/subscribe",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": "Explicit caller dictionary; server field schema not established",
+      "response_shape": "raw_json",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+      "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+      "source_offset_method_start": 542527,
+      "reported_contract": "Body contains type; response.data; type options unverified",
+      "evidence_observation": "user-relayed local RAM static inventory; 10 linked JS inspected, not a complete all-JS inventory; no cloud fetch",
+      "private_live_verified": false,
+      "body_required": true,
+      "known_body_keys": [
+        "type"
+      ]
+    },
+    "renew_subscription": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "POST",
+      "path": "/subscription/renew",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "response_shape": "ram_data_is_auto",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+      "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+      "source_offset_method_start": 543020,
+      "reported_contract": "Explicit null body; response.data.data.is_auto",
+      "evidence_observation": "user-relayed local RAM static inventory; 10 linked JS inspected, not a complete all-JS inventory; no cloud fetch",
+      "private_live_verified": false,
+      "body_policy": "null"
+    },
+    "get_boost_price": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "GET",
+      "path": "/boost/get-price",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "response_shape": "raw_json",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+      "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+      "source_offset_method_start": 543672,
+      "reported_contract": "response.data; prices and commission semantics remain raw",
+      "evidence_observation": "user-relayed local RAM static inventory; 10 linked JS inspected, not a complete all-JS inventory; no cloud fetch",
+      "private_live_verified": false
+    },
+    "get_subscription_price": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "GET",
+      "path": "/subscription/get-price",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "response_shape": "ram_data",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+      "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+      "source_offset_method_start": 545095,
+      "reported_contract": "response.data.data",
+      "evidence_observation": "user-relayed local RAM static inventory; 10 linked JS inspected, not a complete all-JS inventory; no cloud fetch",
+      "private_live_verified": false
+    },
+    "get_notifications": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "GET",
+      "path": "/user/get-notification",
+      "private": true,
+      "get_mutation": false,
+      "query": {
+        "page": {},
+        "limit": {},
+        "type": {}
+      },
+      "path_params": [],
+      "body_schema": null,
+      "response_shape": "ram_notifications",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+      "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+      "source_offset_method_start": 548685,
+      "reported_contract": "Query page,limit and optional type; response.data.data and response.data.meta.total/count; second method start offset550715",
+      "evidence_observation": "user-relayed local RAM static inventory; 10 linked JS inspected, not a complete all-JS inventory; no cloud fetch",
+      "private_live_verified": false,
+      "additional_source_offsets_method_start": [
+        550715
+      ]
+    },
+    "get_active_notifications": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "GET",
+      "path": "/user/get-active-notification",
+      "private": true,
+      "get_mutation": false,
+      "query": {
+        "page": {},
+        "limit": {}
+      },
+      "path_params": [],
+      "body_schema": null,
+      "response_shape": "ram_active_notifications",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+      "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+      "source_offset_method_start": 549468,
+      "reported_contract": "Query page,limit; response.data.data and response.data.meta.count",
+      "evidence_observation": "user-relayed local RAM static inventory; 10 linked JS inspected, not a complete all-JS inventory; no cloud fetch",
+      "private_live_verified": false
+    },
+    "read_all_notifications": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "GET",
+      "path": "/user/read-all-notification",
+      "private": true,
+      "get_mutation": true,
+      "query": {},
+      "path_params": [],
+      "body_schema": null,
+      "response_shape": "raw_json",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+      "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+      "source_offset_method_start": 552090,
+      "reported_contract": "Mutating GET; UI sets read_notif=1 and count=0; no backend success fields established",
+      "evidence_observation": "user-relayed local RAM static inventory; 10 linked JS inspected, not a complete all-JS inventory; no cloud fetch",
+      "private_live_verified": false
+    },
+    "create_internal_stock_transfer": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "POST",
+      "path": "/account/create-withdraw-to-stock",
+      "private": true,
+      "get_mutation": false,
+      "query": {},
+      "query_policy": "none",
+      "path_params": [],
+      "body_required": true,
+      "known_body_keys": [
+        "currency_id",
+        "sum",
+        "internal_request"
+      ],
+      "body_currency_id_policy": "internal_stock",
+      "body_schema": "Explicit caller dictionary; internal_request true and positive integer currency_id are local SDK policy; sum remains raw",
+      "response_shape": "raw_json",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/pages/Cabinet/WalletAction/SpotAssetsTransfer-370f165e27881048.js",
+      "source_sha256": "f201f8530c9b0e65ecb5269f261d1e543c0b7b0e0881c0391b7ab8ed495efe28",
+      "source_offset_method_start": 16015,
+      "reported_contract": "POST /account/create-withdraw-to-stock body {currency_id:_,sum:w,internal_request:true}; no response fields read, refresh accounts after await",
+      "evidence_observation": "user-relayed local RAM public static inventory; not fetched by this cloud run",
+      "private_live_verified": false
+    },
+    "get_account_transaction_journal": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "GET",
+      "path": "/transactions/account-transactions",
+      "private": true,
+      "get_mutation": false,
+      "query": {
+        "page": {
+          "fixed": 1
+        },
+        "limit": {
+          "fixed": 999
+        }
+      },
+      "query_policy": "declared",
+      "path_params": [],
+      "body_schema": null,
+      "response_shape": "ram_data",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/3812-633d8d6f222bceb0.js",
+      "source_sha256": "2c0957ed01c7bfd933ba10d0bba968fafb5802f81872c2f9205768b6a0b20107",
+      "source_module": 71801,
+      "source_offsets": {
+        "module_import": 5600,
+        "props": 5715,
+        "get_call": 7813,
+        "response_consumer": 7967
+      },
+      "reported_contract": "Module 71801 imports API client module77016, reads props.url and props.type, GET url+'?page=1&limit=999'+optional '&type='+type using bearer, then passes response.data.data to consumer",
+      "page_prop_sources": [
+        {
+          "source_url": "https://bit.team/p2p/_next/static/chunks/pages/Cabinet/Archive-729a89b5478b2127.js",
+          "source_sha256": "ef412159bdc563869b4abc3e120573d2e8d08250e276e443e89dd92cbf8f66bd",
+          "source_offset_url_prop": 6614,
+          "reported_props": {
+            "url": "/transactions/account-transactions"
+          }
+        }
+      ],
+      "api_base_source": {
+        "module": 77016,
+        "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+        "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+        "source_offset": 121387,
+        "reported_contract": "create({baseURL:'https://api-v2.bit.team/api/v2'})"
+      },
+      "evidence_observation": "user-relayed local RAM targeted props-to-shared-request trace; no new API calls or cloud fetch",
+      "private_live_verified": false,
+      "limitations": "Fixed observed single-window read only; no iterator, pagination completeness, retention or transaction-status semantics established"
+    },
+    "get_transaction_journal": {
+      "js_helper": null,
+      "derived_callsite": true,
+      "method": "GET",
+      "path": "/transactions/get-transactions",
+      "private": true,
+      "get_mutation": false,
+      "query": {
+        "page": {
+          "fixed": 1
+        },
+        "limit": {
+          "fixed": 999
+        },
+        "type": {
+          "required": true,
+          "enum": [
+            "amount",
+            "system"
+          ]
+        }
+      },
+      "query_policy": "declared",
+      "path_params": [],
+      "body_schema": null,
+      "response_shape": "ram_data",
+      "source_url": "https://bit.team/p2p/_next/static/chunks/3812-633d8d6f222bceb0.js",
+      "source_sha256": "2c0957ed01c7bfd933ba10d0bba968fafb5802f81872c2f9205768b6a0b20107",
+      "source_module": 71801,
+      "source_offsets": {
+        "module_import": 5600,
+        "props": 5715,
+        "get_call": 7813,
+        "response_consumer": 7967
+      },
+      "reported_contract": "Module 71801 imports API client module77016, reads props.url and props.type, GET url+'?page=1&limit=999'+optional '&type='+type using bearer, then passes response.data.data to consumer",
+      "page_prop_sources": [
+        {
+          "source_url": "https://bit.team/p2p/_next/static/chunks/pages/Cabinet/Trader-ac27c0d669bfbe6a.js",
+          "source_sha256": "109db258fd8c687717a0a5e8682bc484a14798dc9a438ec8626db5c9d015f535",
+          "source_offset_url_prop": 7383,
+          "reported_props": {
+            "url": "/transactions/get-transactions",
+            "type": "amount"
+          }
+        },
+        {
+          "source_url": "https://bit.team/p2p/_next/static/chunks/pages/Cabinet/Any-1009ae0797d3db0d.js",
+          "source_sha256": "463884550e670cee4fd5000b26a657970416e10a2f607373b18252f4ee9d45be",
+          "source_offset_url_prop": 3982,
+          "reported_props": {
+            "url": "/transactions/get-transactions",
+            "type": "system"
+          }
+        }
+      ],
+      "api_base_source": {
+        "module": 77016,
+        "source_url": "https://bit.team/p2p/_next/static/chunks/pages/_app-3772cf9af2d461b9.js",
+        "source_sha256": "2316cc9e89475e17ce2a2fae1378c40cb7e0eed706e80dc8f72925a7ff37ab49",
+        "source_offset": 121387,
+        "reported_contract": "create({baseURL:'https://api-v2.bit.team/api/v2'})"
+      },
+      "evidence_observation": "user-relayed local RAM targeted props-to-shared-request trace; no new API calls or cloud fetch",
+      "private_live_verified": false,
+      "limitations": "Fixed observed single-window read only; no iterator, pagination completeness, retention or transaction-status semantics established"
     }
+  },
+  "ram_inventory_provenance": {
+    "base_module": 77016,
+    "base_source_offset_method_start": 121387,
+    "reported_base_contract": "create({baseURL:'https://api-v2.bit.team/api/v2'})",
+    "manifest_build": "R5BL6q2trcHZtSUYGbF3M",
+    "manifest_sha256": "5520c22a65c8cfc9076ed7e780071c0f41a6dc92cf51d2e0293d7a69fbc62c5f",
+    "observation": "User-relayed local RAM static inventory of 10 linked JS sources; not complete all-JS coverage; no cloud fetch or account/financial requests"
   }
 }

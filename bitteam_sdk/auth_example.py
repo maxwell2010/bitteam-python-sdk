@@ -1,4 +1,8 @@
-"""Interactive read-only login example: python -m bitteam_sdk.auth_example."""
+"""Interactive login example with device-code delivery and session logout.
+
+Run explicitly with python -m bitteam_sdk.auth_example. This is not a read-only
+probe: login and device confirmation may send codes; logout revokes the session.
+"""
 import argparse
 import asyncio
 import getpass

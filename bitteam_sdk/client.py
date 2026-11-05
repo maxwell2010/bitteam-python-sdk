@@ -1,7 +1,7 @@
 """High-level BitTeam client with API-key and interactive session login."""
 from .rest import BitTeamRestAPI
 from .auth import SessionAuth, PublicAuth, AuthState, LoginResult
-from .services import ServiceMethods
+from .services import ServiceMethods, private_read_guard
 
 
 class BitTeamClient(ServiceMethods):
@@ -21,6 +21,10 @@ class BitTeamClient(ServiceMethods):
         self._p2p = None
         self._closed = False
         self._close_task = None
+
+    def _assert_open(self):
+        if self._closed:
+            raise RuntimeError("Client is closed")
 
     @property
     def auth(self):
@@ -82,21 +86,27 @@ class BitTeamClient(ServiceMethods):
         return result
 
     async def logout(self):
+        auth = self._session_auth()
+        guard = private_read_guard(self)
         try:
             if self._account_streams is not None:
                 await self._account_streams.close()
         finally:
-            await self._session_auth().logout()
+            guard()
+            await auth.logout()
 
     async def resume_session(self, *, validate=True):
         return await self._session_auth().resume(validate=validate)
 
     async def clear_session(self):
+        auth = self._session_auth()
+        guard = private_read_guard(self)
         try:
             if self._account_streams is not None:
                 await self._account_streams.close()
         finally:
-            await self._session_auth().clear_session()
+            guard()
+            await auth.clear_session()
 
     def _require_ready(self):
         if self._closed:
@@ -155,6 +165,7 @@ class BitTeamClient(ServiceMethods):
         if self._market is None:
             from .market_streams import BitTeamMarketStreams
             self._market = BitTeamMarketStreams()
+            self._market._owner_guard = self._assert_open
         return self._market
 
     @property
@@ -164,6 +175,7 @@ class BitTeamClient(ServiceMethods):
         if self._account_streams is None:
             from .account_streams import BitTeamAccountStreams
             self._account_streams = BitTeamAccountStreams(self._session_auth())
+            self._account_streams._owner_guard = self._assert_open
         return self._account_streams
 
     @property
@@ -200,6 +212,7 @@ class BitTeamClient(ServiceMethods):
         if self._history is None:
             from .websocket import BitTeamWebSocket
             self._history = BitTeamWebSocket()
+            self._history._owner_guard = self._assert_open
         return self._history
 
     async def get_klines(self, symbol, interval="1m", *, start=None, end=None):
@@ -208,6 +221,24 @@ class BitTeamClient(ServiceMethods):
     async def fetch_klines(self, symbol, interval="1m", *, start, end, **bounds):
         from .history import fetch_klines
         return await fetch_klines(symbol, interval, start=start, end=end, source=self.history, **bounds)
+
+    async def recover_klines(self, subscription, *, start, end, **bounds):
+        """Return bounded history and a replacement iterator without atomicity."""
+        from .history import recover_klines
+        from .websocket import KlineSubscription
+        if self._closed:
+            raise RuntimeError("Client is closed")
+        if not isinstance(subscription, KlineSubscription) or subscription.client is not self._history:
+            raise ValueError("Expected a history subscription belonging to this client")
+        return await recover_klines(subscription, start=start, end=end,
+                                    _owner_guard=self._assert_open, **bounds)
+
+    async def reconcile_book(self, symbol, subscription):
+        """Return a fresh snapshot and subscription; raw updates are not applied."""
+        from .orderbook import reconcile_book
+        if self._closed:
+            raise RuntimeError("Client is closed")
+        return await reconcile_book(self, symbol, subscription)
 
     def iter_klines(self, symbol, interval="1m", *, start, end, **bounds):
         from .history import iter_klines
@@ -236,9 +267,9 @@ class BitTeamClient(ServiceMethods):
         return Kline.to_dataframe([[k.open_time, k.open, k.high, k.low, k.close, k.volume] for k in candles])
 
     @staticmethod
-    def plot_klines(frame, title="BitTeam"):
+    def plot_klines(frame, title="BitTeam", *, show=True):
         from .charting import plot_candles
-        return plot_candles(frame, title)
+        return plot_candles(frame, title, show=show)
 
     async def __aenter__(self):
         if self._closed:
@@ -246,5 +277,11 @@ class BitTeamClient(ServiceMethods):
         await self.rest._get_session()
         return self
 
-    async def __aexit__(self, *exc):
-        await self.close()
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        try:
+            await self.close()
+        except BaseException:
+            # Cleanup failure stays observable through close(), but must not
+            # replace a request failure or cancellation already in flight.
+            if exc_type is None:
+                raise

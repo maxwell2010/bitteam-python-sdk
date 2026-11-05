@@ -4,11 +4,12 @@ The exchange's live publications are not assumed to be full snapshots or
 ordered deltas. No historical book is fabricated from today's snapshot.
 """
 import asyncio
-from dataclasses import dataclass
-from decimal import Decimal, InvalidOperation, localcontext
+from dataclasses import dataclass, field
+from decimal import Context, Decimal, InvalidOperation, MAX_EMAX, MIN_EMIN, localcontext
 import json
 from pathlib import Path
 import sqlite3
+import sys
 import time
 
 from .services import symbol_name
@@ -23,6 +24,11 @@ def exact_context_size(values, count=1):
         cost = max(cost, digits + abs(exponent))
     return max(80, 2 * cost + len(str(count)) + 8)
 
+
+def _book_context(values, count=1):
+    # Precision, exponent limits, rounding and traps must all be independent
+    # of the embedding application's Decimal context.
+    return Context(prec=exact_context_size(values, count), Emax=MAX_EMAX, Emin=MIN_EMIN)
 
 @dataclass(frozen=True)
 class BookLevel:
@@ -59,8 +65,7 @@ class OrderBookSnapshot:
                 if not price.is_finite() or not amount.is_finite() or price <= 0 or amount < 0:
                     raise ValueError("Invalid orderbook values")
                 parsed.append((price, amount))
-            with localcontext() as context:
-                context.prec = exact_context_size([v for row in parsed for v in row], len(parsed))
+            with localcontext(_book_context([v for row in parsed for v in row], len(parsed))):
                 for price, amount in parsed:
                     if amount:
                         combined[price] = combined.get(price, Decimal(0)) + amount
@@ -83,16 +88,14 @@ class OrderBookSnapshot:
     def spread(self):
         if not self.bids or not self.asks:
             return None
-        with localcontext() as context:
-            context.prec = exact_context_size([self.best_ask, self.best_bid])
+        with localcontext(_book_context([self.best_ask, self.best_bid])):
             return self.best_ask - self.best_bid
 
     @property
     def mid_price(self):
         if not self.bids or not self.asks:
             return None
-        with localcontext() as context:
-            context.prec = exact_context_size([self.best_ask, self.best_bid])
+        with localcontext(_book_context([self.best_ask, self.best_bid])):
             return (self.best_ask + self.best_bid) / 2
 
     def depth(self, side, *, levels=None):
@@ -102,8 +105,7 @@ class OrderBookSnapshot:
             raise ValueError("levels must be positive")
         base, quote, result = Decimal(0), Decimal(0), []
         selected = getattr(self, side)[:levels]
-        with localcontext() as context:
-            context.prec = exact_context_size([v for row in selected for v in (row.price, row.amount)], len(selected))
+        with localcontext(_book_context([v for row in selected for v in (row.price, row.amount)], len(selected))):
             for row in selected:
                 base += row.amount
                 quote += row.price * row.amount
@@ -114,8 +116,7 @@ class OrderBookSnapshot:
         bids, asks = self.depth("bids", levels=levels), self.depth("asks", levels=levels)
         buy = bids[-1]["cumulative_base"] if bids else Decimal(0)
         sell = asks[-1]["cumulative_base"] if asks else Decimal(0)
-        with localcontext() as context:
-            context.prec = exact_context_size([buy, sell])
+        with localcontext(_book_context([buy, sell])):
             return (buy - sell) / (buy + sell) if buy + sell else None
 
     def as_dict(self):
@@ -124,19 +125,154 @@ class OrderBookSnapshot:
                 "received_at_ms": self.received_at_ms, "source": self.source}
 
 
+@dataclass(frozen=True)
+class ReconciledBook:
+    """A fresh REST observation and raw stream reference, without continuity."""
+    snapshot: OrderBookSnapshot
+    subscription: object
+    continuity_guaranteed: bool = field(default=False, init=False)
+    events_applied: bool = field(default=False, init=False)
+
+
+async def reconcile_book(client, symbol, oldsub):
+    """Explicitly replace a public book stream, then acquire a REST snapshot.
+
+    The market connection retires all its old subscriptions; only oldsub's path
+    is restored. Old references retain their gap notification. Publications
+    queued during the REST read remain raw and are NEVER applied to the book.
+    There is no proven snapshot anchor, delta order, atomic handoff or replay.
+    On failure/cancellation, close the newly created subscription without
+    replacing the initiating exception. Retry is controlled by the caller.
+    """
+    from .market_streams import MarketSubscription, pair_identity
+
+    name = symbol_name(symbol)
+    if not isinstance(oldsub, MarketSubscription) or oldsub.channel != "orderbook":
+        raise ValueError("Expected a public orderbook subscription")
+    market = client.market
+    if oldsub.client is not market:
+        raise ValueError("Orderbook subscription belongs to another market stream")
+    cancelled = False
+
+    def assert_current():
+        if cancelled:
+            raise asyncio.CancelledError("Book reconciliation was cancelled")
+        if getattr(client, "_closed", False):
+            raise RuntimeError("Client is closed")
+        market._assert_owner_open()
+
+    async def cleanup(subscription=None):
+        # A late reconnect may outlive the owning client's completed close().
+        # In that case retire the entire captured transport, not just its SUB.
+        target = market if getattr(client, "_closed", False) else subscription
+        if target is None:
+            return
+        closing = asyncio.create_task(target.close())
+        while not closing.done():
+            try:
+                await asyncio.shield(closing)
+            except asyncio.CancelledError:
+                continue
+            except BaseException:
+                break
+        try:
+            closing.result()
+        except BaseException:
+            pass  # Preserve the initiating failure/cancellation.
+
+    async def reconcile():
+        subscription = None
+        try:
+            assert_current()
+            pair_id = await client.rest._pair_id(name)
+            assert_current()
+            path = "/orderbooks/" + pair_identity(pair_id)
+            if oldsub.path != path:
+                raise ValueError("Orderbook subscription belongs to another pair")
+            replacements = await market.reconnect([oldsub])
+            subscription = replacements[path]
+            assert_current()
+            snapshot = await client.get_orderbook_snapshot(name)
+            assert_current()
+            if not isinstance(snapshot, OrderBookSnapshot) or snapshot.symbol != name.upper():
+                raise ValueError("Expected an orderbook snapshot for the requested symbol")
+            return ReconciledBook(snapshot, subscription)
+        except BaseException:
+            await cleanup(subscription)
+            raise
+
+    # The caller owns cancellation even when a compatible provider or fake I/O
+    # suppresses CancelledError. Keep its work alive until cleanup can finish.
+    worker = asyncio.create_task(reconcile())
+    try:
+        return await asyncio.shield(worker)
+    except asyncio.CancelledError:
+        cancelled = True
+        worker.cancel()
+        while not worker.done():
+            try:
+                await asyncio.shield(worker)
+            except asyncio.CancelledError:
+                continue
+            except BaseException:
+                break
+        try:
+            late_result = worker.result()
+        except BaseException:
+            pass
+        else:
+            await cleanup(late_result.subscription)
+        raise
+
+
 class MarketDataRecorder:
-    """Local append-only observation store. Public data only, no credentials."""
+    """File-backed observation store. Public data only, no credentials.
+
+    SQLite ':memory:' is unsupported because each operation owns a connection.
+    """
 
     def __init__(self, path):
+        if str(path) == ":memory:":
+            raise ValueError("MarketDataRecorder requires a file-backed SQLite path")
         self.path = Path(path)
         self._lock = asyncio.Lock()
 
     def _connection(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
         connection = sqlite3.connect(self.path, timeout=30)
-        connection.execute("CREATE TABLE IF NOT EXISTS observations (id INTEGER PRIMARY KEY, symbol TEXT NOT NULL, kind TEXT NOT NULL, received_at_ms INTEGER NOT NULL, payload TEXT NOT NULL)")
-        connection.execute("CREATE INDEX IF NOT EXISTS obs_window ON observations(symbol, kind, received_at_ms, id)")
-        return connection
+        try:
+            connection.execute("CREATE TABLE IF NOT EXISTS observations (id INTEGER PRIMARY KEY, symbol TEXT NOT NULL, kind TEXT NOT NULL, received_at_ms INTEGER NOT NULL, payload TEXT NOT NULL)")
+            connection.execute("CREATE INDEX IF NOT EXISTS obs_window ON observations(symbol, kind, received_at_ms, id)")
+            return connection
+        except BaseException:
+            try:
+                connection.close()
+            except BaseException:
+                pass
+            raise
+
+    @staticmethod
+    def _close_connection(connection, *, primary_failure):
+        try:
+            connection.close()
+        except BaseException:
+            if not primary_failure:
+                raise
+
+    async def _run_worker(self, operation):
+        worker = asyncio.create_task(asyncio.to_thread(operation))
+        try:
+            return await asyncio.shield(worker)
+        except asyncio.CancelledError:
+            # A thread cannot be canceled. Retain serialization until it exits,
+            # and preserve cancellation even when its SQL operation fails.
+            drain = asyncio.gather(worker, return_exceptions=True)
+            while not drain.done():
+                try:
+                    await asyncio.shield(drain)
+                except asyncio.CancelledError:
+                    continue
+            raise
 
     async def _insert(self, symbol, kind, timestamp, payload):
         encoded = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
@@ -147,21 +283,9 @@ class MarketDataRecorder:
                     connection.execute("INSERT INTO observations(symbol,kind,received_at_ms,payload) VALUES(?,?,?,?)",
                                        (symbol_name(symbol).upper(), kind, timestamp, encoded))
             finally:
-                connection.close()
+                self._close_connection(connection, primary_failure=sys.exc_info()[0] is not None)
         async with self._lock:
-            # Cancelling to_thread does not stop the worker. Keep the lock
-            # until its transaction finishes, then deliver cancellation.
-            worker = asyncio.create_task(asyncio.to_thread(insert))
-            try:
-                await asyncio.shield(worker)
-            except asyncio.CancelledError:
-                while not worker.done():
-                    try:
-                        await asyncio.shield(worker)
-                    except asyncio.CancelledError:
-                        pass
-                worker.result()
-                raise
+            await self._run_worker(insert)
 
     async def record_snapshot(self, snapshot):
         if not isinstance(snapshot, OrderBookSnapshot):
@@ -197,9 +321,9 @@ class MarketDataRecorder:
                     raise ValueError("Recording range exceeds limit; narrow the range or increase limit")
                 return [{"received_at_ms": timestamp, "payload": json.loads(payload)} for timestamp, payload in rows]
             finally:
-                connection.close()
+                self._close_connection(connection, primary_failure=sys.exc_info()[0] is not None)
         async with self._lock:
-            return await asyncio.to_thread(read)
+            return await self._run_worker(read)
 
     async def capture_orderbook(self, client, symbol, *, duration=60, interval=1, max_samples=10000):
         """Bound snapshot acquisition by duration; finish an already-started commit."""

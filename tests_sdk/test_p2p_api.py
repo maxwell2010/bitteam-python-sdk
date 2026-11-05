@@ -65,10 +65,30 @@ def client_with(auth=None, response=None):
 async def test_every_confirmed_helper_routes_once_with_correct_auth(operation):
     entry = P2P_CATALOG[operation]
     payload = {"user": {}, "account": [], "total_usd": "0"} if entry.get("response_shape") == "auth_user" else {"status": True, "data": {"synthetic": True}, "code": 200}
+    if entry.get("response_shape") == "withdrawal_create":
+        payload = {"data": {"id": "synthetic-created-id"}}
+    shape = entry.get("response_shape", "")
+    if shape == "ram_tokens":
+        payload = {"tokens": []}
+    elif shape == "ram_subscription_list":
+        payload = {"data": []}
+    elif shape == "ram_data_is_auto":
+        payload = {"data": {"is_auto": "raw"}}
+    elif shape in ("ram_notifications", "ram_active_notifications"):
+        payload = {"data": [], "meta": {"count": 0}}
     client = client_with(auth_with_cookie(), Response(payload))
     path = {key: "sample-id" for key in entry["path_params"]}
     params = {key: (2 if key in ("page", "limit") else "sample") for key, rule in entry["query"].items() if rule.get("required")}
+    for key, rule in entry["query"].items():
+        if "enum" in rule and rule.get("required"):
+            params[key] = rule["enum"][0]
     data = ({key: "sample" for key in entry.get("known_body_keys", [])} or {"explicit": "caller-body"}) if entry["method"] == "POST" else None
+    if entry.get("body_currency_id_policy") == "stock_95":
+        data["currency_id"] = 95
+    if entry.get("body_currency_id_policy") == "internal_stock":
+        data.update(currency_id=44, internal_request=True)
+    if entry.get("body_policy") == "null":
+        data = None
     result = await getattr(client, operation)(path=path, params=params, data=data)
     assert result is payload
     assert len(client._session.calls) == 1
@@ -200,7 +220,7 @@ def test_catalog_coverage_and_mutating_get_annotations():
     coverage = P2P_SCHEMA["coverage"]
     assert coverage["total_helpers"] == 62
     assert coverage["included_helpers"] == 61
-    assert len(P2P_CATALOG) == 61 + len(coverage["derived_callsite_operations"]) == 63
+    assert len(P2P_CATALOG) == 61 + len(coverage["derived_callsite_operations"]) == 84
     assert "getRequestCabinet" in coverage["excluded"]
     for name in ("accept_operation", "pay_operation", "send_coin_operation", "cancel_operation",
                  "cancel_withdraw", "delete_advert_user", "get_auth_google_active"):

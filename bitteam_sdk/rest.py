@@ -12,6 +12,58 @@ from .utils import RateLimiter, format_number
 
 
 class BitTeamRestAPI:
+    @property
+    def auth(self):
+        return self._auth
+
+    @auth.setter
+    def auth(self, value):
+        if not isinstance(value, (ApiKeyAuth, SessionAuth, PublicAuth)):
+            raise TypeError("Expected an SDK authentication strategy")
+        previous = getattr(self, "_auth", None)
+        if previous is value:
+            return
+        if hasattr(self, "base_url"):
+            origins = {URL(self.base_url).origin()}
+            if isinstance(value, SessionAuth):
+                origins.add(URL(value.auth_url).origin())
+            if any(origin.scheme != "https" for origin in origins):
+                raise ValueError("Authentication requires HTTPS")
+            if isinstance(value, SessionAuth):
+                value.bind(self)
+            self._allowed_origins = origins
+        if previous is not None:
+            if isinstance(previous, SessionAuth):
+                # Identity alone can become equal again after A -> B -> A.
+                # Retire the old epoch without clearing tokens or cache so
+                # newly issued work can use an explicitly returned auth A.
+                previous._lifecycle += 1
+            try:
+                current = asyncio.current_task()
+            except RuntimeError:
+                current = None
+            for task in tuple(getattr(previous, "_pending_requests", ())):
+                if task is not current and not task.done():
+                    task.cancel()
+            # A late Set-Cookie belongs to the old session, never to the new
+            # owner. Do not reuse or copy the old cookie jar across identities.
+            session = getattr(self, "_session", None)
+            if session is not None:
+                if not hasattr(self, "_retired_sessions"):
+                    self._retired_sessions = []
+                self._retired_sessions.append(session)
+                self._session = None
+        # Every strategy replacement retires issued work, including API-key
+        # A -> B -> A where identity matches again and no session lifecycle exists.
+        self._auth_epoch = getattr(self, "_auth_epoch", 0) + 1
+        self._auth = value
+
+    @auth.deleter
+    def auth(self):
+        # Missing auth also invalidates pending work and detaches cookies.
+        self.auth = PublicAuth()
+        del self._auth
+
     def __init__(self, api_key=None, api_secret=None, *, auth=None,
                  base_url="https://bit.team/trade/api", timeout=30, max_read_retries=2, max_retry_wait=30):
         if auth is not None and (api_key is not None or api_secret is not None):
@@ -31,6 +83,8 @@ class BitTeamRestAPI:
         self.api = BitTeamAPI(self)
         self._precisions = None
         self._session = None
+        self._retired_sessions = []
+        self._retired_close_tasks = set()
         self._closed = False
         self._limiter = RateLimiter(max_calls=5, period=1)
         self._pairs = None
@@ -44,6 +98,9 @@ class BitTeamRestAPI:
     async def _get_session(self):
         if self._closed:
             raise RuntimeError("Client is closed")
+        await self._close_retired_sessions()
+        if self._closed:
+            raise RuntimeError("Client is closed")
         if self._session is None:
             try:
                 import certifi
@@ -55,6 +112,30 @@ class BitTeamRestAPI:
                 connector=aiohttp.TCPConnector(ssl=context),
                 cookie_jar=aiohttp.CookieJar() if self._session_mode else aiohttp.DummyCookieJar())
         return self._session
+
+    async def _close_retired_sessions(self):
+        sessions, self._retired_sessions = self._retired_sessions, []
+        if sessions:
+            async def close_batch():
+                results = await asyncio.gather(*(session.close() for session in sessions), return_exceptions=True)
+                for result in results:
+                    if isinstance(result, BaseException):
+                        raise result
+            task = asyncio.create_task(close_batch())
+            # Retain work across caller cancellation and share it with close().
+            self._retired_close_tasks.add(task)
+            task.add_done_callback(lambda done: None if done.cancelled() else done.exception())
+        tasks = tuple(self._retired_close_tasks)
+        if tasks:
+            results = await asyncio.gather(*(asyncio.shield(task) for task in tasks), return_exceptions=True)
+            # A failed close must remain observable to later close() callers;
+            # forgetting it would turn an unclosed retired session into success.
+            self._retired_close_tasks.difference_update(
+                task for task in tasks
+                if task.done() and not task.cancelled() and task.exception() is None)
+            for result in results:
+                if isinstance(result, BaseException):
+                    raise result
 
     async def clear_cookies(self):
         if self._session is not None:
@@ -71,17 +152,34 @@ class BitTeamRestAPI:
         self._session.cookie_jar.update_cookies(cookies, response_url=URL(self.base_url))
 
     async def _send(self, method, url, *, params=None, data=None, headers=None):
+        try:
+            return await self._send_request(method, url, params=params, data=data, headers=headers)
+        except asyncio.TimeoutError:
+            raise asyncio.TimeoutError("BitTeam request timed out; operation was not retried") from None
+        except aiohttp.ClientError:
+            raise BitTeamAPIError(0) from None
+
+    async def _send_request(self, method, url, *, params=None, data=None, headers=None):
+        auth = self.auth
+        epoch = self._auth_epoch
+        lifecycle = auth._lifecycle if isinstance(auth, SessionAuth) else None
+        def assert_current():
+            self._assert_request_auth(auth, lifecycle, epoch)
         target = URL(url)
         if target.origin() not in self._allowed_origins or target.user is not None:
             raise ValueError("Request origin is not configured for this client")
         await self._limiter.acquire()
+        assert_current()
         session = await self._get_session()
+        assert_current()
         async with session.request(method, target, params=params, json=data,
                                    headers=headers or {}, allow_redirects=False) as response:
             try:
                 result = await response.json()
             except (ValueError, aiohttp.ContentTypeError):
+                assert_current()
                 raise BitTeamAPIError(response.status) from None
+            assert_current()
             if response.status >= 300 or (isinstance(result, dict) and result.get("ok") is False):
                 error = AuthenticationError if response.status == 401 else BitTeamAPIError
                 retry_after = None
@@ -105,26 +203,49 @@ class BitTeamRestAPI:
     def _get_auth_header(self):
         return self.auth.headers()
 
+    def _assert_request_auth(self, auth, lifecycle, epoch):
+        if self._closed:
+            raise RuntimeError("Client is closed")
+        if self.auth is not auth or self._auth_epoch != epoch:
+            raise asyncio.CancelledError("Authentication operation was invalidated")
+        if isinstance(auth, SessionAuth):
+            auth._assert_lifecycle(lifecycle)
+
     async def _request(self, method, endpoint, params=None, data=None, *, public=False):
         if not endpoint.startswith("/") or endpoint.startswith("//"):
             raise ValueError("Expected a relative API endpoint")
-        generation = self.auth.generation if self._session_mode else None
-        headers = {} if public else self._get_auth_header()
+        auth = self.auth
+        epoch = self._auth_epoch
+        session_mode = isinstance(auth, SessionAuth)
+        generation = auth.generation if session_mode else None
+        headers = {} if public else auth.headers()
         # Public responses share the session cookie jar too. Cancel every HTTP
         # exchange on an account boundary, including anonymous market reads.
-        lifecycle = self.auth._lifecycle if self._session_mode else None
-        async def exchange(request_headers):
-            if self._session_mode:
-                self.auth._assert_lifecycle(lifecycle)
-                return await self.auth._tracked_send(
-                    method, self.base_url + endpoint, params=params, data=data, headers=request_headers)
-            return await self._send(method, self.base_url + endpoint, params=params, data=data, headers=request_headers)
+        lifecycle = auth._lifecycle if session_mode else None
+        async def exchange(request_headers, request_generation):
+            async def dispatch():
+                self._assert_request_auth(auth, lifecycle, epoch)
+                try:
+                    result = await self._send(method, self.base_url + endpoint,
+                        params=params, data=data, headers=request_headers)
+                except BitTeamAPIError as error:
+                    if session_mode and not public:
+                        # Internal credential snapshot, never tokens or server
+                        # fields. A later refresh may already own a new pair.
+                        error._credential_generation = request_generation
+                    raise
+                self._assert_request_auth(auth, lifecycle, epoch)
+                return result
+            self._assert_request_auth(auth, lifecycle, epoch)
+            if session_mode:
+                return await auth._tracked_operation(dispatch())
+            return await dispatch()
         safe_read = (method.upper() == "GET" and not endpoint.endswith("/create")
             and not endpoint.startswith(("/login-confirmation", "/phone/checkValidation", "/sumsub/obtain", "/forgot-2fa")))
         async def send():
             for attempt in range(self.max_read_retries + 1):
                 try:
-                    return await exchange(headers)
+                    return await exchange(headers, generation)
                 except BitTeamAPIError as error:
                     if not safe_read or error.status not in (429, 503) or attempt == self.max_read_retries:
                         raise
@@ -137,11 +258,12 @@ class BitTeamRestAPI:
         except BitTeamAPIError as exc:
             # Retry one read on an explicit expired-token response. Never replay
             # mutations, network timeouts, or arbitrary 401/403 failures.
-            if (not public and self._session_mode and safe_read
+            if (not public and session_mode and safe_read
                     and exc.code == 401000 and exc.status in (200, 401)):
-                self.auth._assert_lifecycle(lifecycle)
-                await self.auth.refresh(expected_generation=generation)
-                return await exchange(self._get_auth_header())
+                self._assert_request_auth(auth, lifecycle, epoch)
+                await auth.refresh(expected_generation=generation)
+                self._assert_request_auth(auth, lifecycle, epoch)
+                return await exchange(auth.headers(), auth.generation)
             raise
 
     @property
@@ -266,12 +388,21 @@ class BitTeamRestAPI:
 
     async def close(self):
         self._closed = True
-        if self._session is not None:
-            await self._session.close()
+        try:
+            if self._session is not None:
+                await self._session.close()
+        finally:
+            await self._close_retired_sessions()
 
     async def __aenter__(self):
         await self._get_session()
         return self
 
-    async def __aexit__(self, *exc):
-        await self.close()
+    async def __aexit__(self, exc_type, exc_value, traceback):
+        try:
+            await self.close()
+        except BaseException:
+            # Cleanup failure stays observable through close(), but must not
+            # replace a request failure or cancellation already in flight.
+            if exc_type is None:
+                raise

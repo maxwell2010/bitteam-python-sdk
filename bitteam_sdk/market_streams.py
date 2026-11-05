@@ -6,13 +6,13 @@ publications were observed for all four channels, including trade.new, during
 the module's live check. These are raw events, not historical L2 snapshots.
 """
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 import ssl
 
 import aiohttp
 
-from .websocket import BitTeamWebSocket
+from .websocket import BitTeamWebSocket, sanitized_transport
 
 
 class MarketStreamGap(ConnectionError):
@@ -47,6 +47,7 @@ class MarketSubscription:
     channel: str
     queue: asyncio.Queue
     closed: bool = False
+    _terminal_error: object = field(default=None, repr=False)
 
     def __aiter__(self):
         return self
@@ -69,7 +70,7 @@ class MarketSubscription:
         if not self.closed:
             self.closed = True
             if self.client._subscriptions.get(self.path) is self:
-                await self.client.unsubscribe(self.path)
+                await self.client.unsubscribe(self.path, _expected=self)
 
 
 def pair_identity(value):
@@ -101,14 +102,21 @@ class BitTeamMarketStreams(BitTeamWebSocket):
         """Extension hook for separately reviewed session-backed subclasses."""
         return {"type": "hello", "version": "2", "auth": {"headers": {"Authorization": "jwt"}}}
 
+    @sanitized_transport
     async def connect(self):
+        self._assert_owner_open()
+        await self._await_subscription_cleanup()
+        self._assert_owner_open()
         async with self._connect_lock:
+            self._assert_owner_open()
             if self.ws is not None and not self.ws.closed:
                 return
             await self._stop_reader()
+            self._assert_owner_open()
             # Call before opening the socket so authentication hook failures
             # cannot leave a connection or newly allocated session behind.
             hello = await self._hello_payload()
+            self._assert_owner_open()
             if self._session is None or self._session.closed:
                 try:
                     import certifi
@@ -118,13 +126,17 @@ class BitTeamMarketStreams(BitTeamWebSocket):
                 self._session = aiohttp.ClientSession(
                     connector=aiohttp.TCPConnector(ssl=context), cookie_jar=aiohttp.DummyCookieJar())
             try:
-                self.ws = await self._session.ws_connect(
-                    self.url, protocols=["nes"], origin="https://bit.team",
-                    max_msg_size=8 * 1024 * 1024, timeout=aiohttp.ClientWSTimeout(ws_close=5))
+                self.ws = await asyncio.wait_for(
+                    self._session.ws_connect(
+                        self.url, protocols=["nes"], origin="https://bit.team",
+                        max_msg_size=8 * 1024 * 1024, timeout=aiohttp.ClientWSTimeout(ws_close=5)),
+                    self.timeout)
+                self._assert_owner_open()
                 self._reader_task = asyncio.create_task(self._reader())
                 await self._rpc(hello)
+                self._assert_owner_open()
             except BaseException:
-                await self._close()
+                await self._close_after_failure(locked=True)
                 raise
 
     async def _subscribe(self, path, channel):
@@ -132,7 +144,9 @@ class BitTeamMarketStreams(BitTeamWebSocket):
             return await self._subscribe_unlocked(path, channel)
 
     async def _subscribe_unlocked(self, path, channel):
+        self._assert_owner_open()
         await self.connect()
+        self._assert_owner_open()
         existing = self._subscriptions.get(path)
         if existing is not None and not existing.closed:
             return existing
@@ -140,8 +154,9 @@ class BitTeamMarketStreams(BitTeamWebSocket):
         self._subscriptions[path] = subscription
         try:
             await self._rpc({"type": "sub", "path": path})
+            self._assert_owner_open()
         except BaseException:
-            self._subscriptions.pop(path, None)
+            await self._retire_uncertain_subscription()
             subscription.closed = True
             raise
         return subscription
@@ -152,8 +167,9 @@ class BitTeamMarketStreams(BitTeamWebSocket):
         # even when a slow consumer filled the bounded queue before reconnect.
         while not subscription.queue.empty():
             subscription.queue.get_nowait()
-        subscription.queue.put_nowait(MarketStreamGap(
-            "Market stream replaced; events may be missing, acquire a fresh snapshot"))
+        subscription._terminal_error = MarketStreamGap(
+            "Market stream replaced; events may be missing, acquire a fresh snapshot")
+        subscription.queue.put_nowait(subscription._terminal_error)
 
     async def reconnect(self, subscriptions):
         """Replace an explicit iterable of public subscriptions and return a path map.
@@ -165,6 +181,7 @@ class BitTeamMarketStreams(BitTeamWebSocket):
         A failed/cancelled batch closes all new subscriptions; it never returns
         a partially restored set. Callers control retry timing and attempts.
         """
+        self._assert_owner_open()
         requested = {}
         for subscription in subscriptions:
             if not isinstance(subscription, MarketSubscription) or subscription.client is not self:
@@ -179,21 +196,26 @@ class BitTeamMarketStreams(BitTeamWebSocket):
                 raise ValueError("Expected a confirmed public market channel")
             requested[path] = subscription
         async with self._subscription_lock:
+            self._assert_owner_open()
             old = {id(sub): sub for sub in self._subscriptions.values()}
             old.update({id(sub): sub for sub in requested.values()})
-            await self.close()
+            # Retire before close yields to the reader or waiting consumers.
             for subscription in old.values():
                 self._retire(subscription)
+            await self.close()
+            self._assert_owner_open()
             restored = {}
             try:
                 await self.connect()
+                self._assert_owner_open()
                 for path, subscription in requested.items():
                     restored[path] = await self._subscribe_unlocked(path, subscription.channel)
+                    self._assert_owner_open()
                 return restored
             except BaseException:
-                await self.close()
                 for subscription in restored.values():
                     self._retire(subscription)
+                await self._close_after_failure()
                 raise
 
     async def subscribe_tickers(self):

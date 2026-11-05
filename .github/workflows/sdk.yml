@@ -2,6 +2,7 @@ name: SDK tests and distributions
 
 on:
   push:
+    branches: [main]
   pull_request:
   workflow_dispatch:
     inputs:
@@ -13,6 +14,12 @@ on:
 
 permissions:
   contents: read
+
+# Each PR/main ref keeps its newest run; unrelated PRs and explicit manual
+# checks do not cancel each other. Feature pushes are covered by the PR event.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 jobs:
   sdk:
@@ -41,6 +48,11 @@ jobs:
         run: python -m pytest -c tests_sdk/pytest.ini tests_sdk -ra --junitxml=sdk-test-results.xml
       - name: Verify only the native DPAPI test can skip
         run: python scripts_sdk/check_test_skips.py sdk-test-results.xml
+      # GitHub-hosted Windows runners have a disposable desktop. The driver
+      # uses its real global clipboard with synthetic strings, never accounts.
+      - name: Verify synthetic Tk dialogs on disposable Windows desktop
+        if: matrix.os == 'windows-latest' && runner.os == 'Windows' && runner.environment == 'github-hosted'
+        run: python -I -B scripts_sdk/check_window_prompt_runtime.py --disposable-desktop
       - name: Build wheel and source distribution
         if: github.event_name == 'workflow_dispatch' && inputs.verify_distribution
         run: python -m build --wheel --sdist --outdir dist-sdk-ci
@@ -63,3 +75,47 @@ jobs:
             dist-sdk-ci/*.whl
             dist-sdk-ci/*.tar.gz
           if-no-files-found: error
+
+  core-source:
+    name: Core-only source smoke / Python 3.12
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Create a fresh core-only environment
+        run: python -m venv "$RUNNER_TEMP/bitteam-core"
+      - name: Install only core dependencies
+        run: '"$RUNNER_TEMP/bitteam-core/bin/python" -I -m pip --isolated install -r requirements-sdk.txt'
+      - name: Check exact source checkout without optional extras
+        run: '"$RUNNER_TEMP/bitteam-core/bin/python" -I scripts_sdk/check_core_source.py --source-root "$GITHUB_WORKSPACE"'
+
+  postgres-runtime:
+    name: PostgreSQL 16 runtime / Python 3.12
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: sdk_test
+          POSTGRES_PASSWORD: synthetic-ci-only
+          POSTGRES_DB: sdk_runtime
+        ports:
+          - 127.0.0.1:5432:5432
+        options: >-
+          --health-cmd "pg_isready -U sdk_test -d sdk_runtime"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install storage runtime dependencies
+        run: python -m pip install -r requirements-sdk.txt "aiosqlite>=0.20" "asyncpg>=0.29"
+      - name: Run isolated PostgreSQL integration
+        run: python scripts_sdk/check_storage_runtime.py --postgres-dsn postgresql://sdk_test:synthetic-ci-only@127.0.0.1:5432/sdk_runtime

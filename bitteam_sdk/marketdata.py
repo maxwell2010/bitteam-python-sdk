@@ -1,7 +1,18 @@
 """Exact decimal candles derived from the public trades used by our terminal."""
-from decimal import Decimal, InvalidOperation
+from decimal import Context, Decimal, InvalidOperation, MAX_EMAX, MIN_EMIN, localcontext
 from .models import Kline
 from .services import symbol_name
+
+
+def _exact_add(left, right):
+    """Add finite decimals without rounding to an application precision context."""
+    precision = max(left.adjusted(), right.adjusted()) - min(
+        left.as_tuple().exponent, right.as_tuple().exponent) + 2
+    if precision > 10000:
+        raise ValueError("Market decimal addition exceeds supported precision bounds")
+    # Exponent limits and traps also belong to the application context.
+    with localcontext(Context(prec=precision, Emax=MAX_EMAX, Emin=MIN_EMIN)):
+        return left + right
 
 
 def aggregate_trades(trades, symbol, *, interval="1m"):
@@ -16,7 +27,12 @@ def aggregate_trades(trades, symbol, *, interval="1m"):
                 continue
             seen.add(str(identity))
         try:
-            timestamp = int(trade["timestamp"])
+            raw_timestamp = trade["timestamp"]
+            timestamp_value = Decimal(str(raw_timestamp))
+            if (isinstance(raw_timestamp, bool) or not timestamp_value.is_finite()
+                    or timestamp_value != timestamp_value.to_integral_value()):
+                raise ValueError("Timestamp must be whole milliseconds")
+            timestamp = int(timestamp_value)
             price = Decimal(str(trade["price"]))
             amount = Decimal(str(trade.get("base_volume", trade.get("amount"))))
         except (KeyError, TypeError, ValueError, InvalidOperation):
@@ -33,7 +49,7 @@ def aggregate_trades(trades, symbol, *, interval="1m"):
         else:
             values = buckets[bucket]
             values[1], values[2], values[3] = max(values[1], price), min(values[2], price), price
-            values[4] += amount
+            values[4] = _exact_add(values[4], amount)
     return [Kline(symbol_name(symbol).upper(), interval, timestamp, *(str(v) for v in values))
             for timestamp, values in sorted(buckets.items())]
 
@@ -53,5 +69,5 @@ def order_execution(order, *, original_amount=None):
         raise ValueError("Invalid original amount")
     known = original is not None and filled is not None
     return {"status": order.get("status"), "filled": filled, "original_amount": original,
-            "remaining": max(Decimal(0), original - filled) if known else None,
+            "remaining": max(Decimal(0), _exact_add(original, filled.copy_negate())) if known else None,
             "partial": (Decimal(0) < filled < original) if known else None}

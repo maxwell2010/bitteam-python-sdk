@@ -28,7 +28,7 @@ record = await client.wait_for_withdrawal(
 )
 ```
 
-predicate - синхронная функция WithdrawalObservation -> bool. Она должна учитывать и отказ, если задача - дождаться любого конечного результата. True означает выполнение условия вызывающего кода, а не автоматически одобрение биржей. Истечение срока или лимита запросов даёт WithdrawalWaitTimeout с last_observation; ошибка сервера передаётся вызывающему коду без автоматического повтора. Отмена ожидания отменяет текущий запрос. При таймауте нельзя автоматически повторять создание заявки: исходная могла быть принята.
+predicate - синхронная функция WithdrawalObservation -> bool. Она должна учитывать и отказ, если задача - дождаться любого конечного результата. True означает выполнение условия вызывающего кода, а не автоматически одобрение биржей. Истечение срока или лимита запросов даёт WithdrawalWaitTimeout с last_observation; ошибка сервера передаётся вызывающему коду без автоматического повтора. Отмена ожидания отменяет текущий запрос. Всё ожидание привязано к исходной сессии аккаунта: logout/login или замена auth прерывают его, включая проверку после predicate; обновление токена в той же сессии допустимо. При таймауте нельзя автоматически повторять создание заявки: исходная могла быть принята.
 
 ## Подтверждение пользователем
 
@@ -50,3 +50,30 @@ UI строит ссылку обозревателя из links[].tx и params.
 ## P2P: статус 1 означает ожидание
 
 Публичный компонент https://bit.team/p2p/_next/static/chunks/pages/Cabinet/Transaction-eb8de68add8165df.js для type=withdraw отображает -1 как cancelled, 0 как created, 1 как expect; остальные значения показывает success. Это UI mapping, не полный серверный enum: неизвестные значения нельзя автоматически принимать за успех. Детали используют id,type,status,created,sum,percent,coin. Хеш транзакции в этом компоненте не найден. Status=1 для P2P-вывода не является подтверждением завершения.
+
+## Read-only P2P snapshot
+
+client.inspect_p2p_withdrawal(existing_p2p_id) читает только доказанный payload.data. Requested ID и record ID доступны отдельно; неизвестный статус не означает успех. client.get_p2p_accounts() сохраняет account/user/total_usd без догадок о типах и валютах. Источники и offline-границы: docs/P2P_READ_WORKFLOWS.md.
+
+
+## Отдельные новые frontend-контракты
+
+Legacy create_new_withdraw с querycurrency_id не подменяется body-callsite
+формы. prepare_p2p_withdrawal строит стандартный body безHTTP и отклоняет95;
+поля public/commission_booster_name не трактуются. У другой формы
+SpotAssetsTransfer отдельный bodycurrency_id,sum,internal_request:true для того
+же stock endpoint: prepare_p2p_internal_transfer не ограничен95, не добавляет
+address/date/hash и не требует/не придумывает response.data.id. Доступность и
+результат перевода не проверены. Источники/ограничения: SITE_INVENTORY/schema.
+
+Явный journal UI switch в3812-633d8d6f222bceb0.js offset6723 даёт метки
+cancelled/created/confirmed/done для-1/0/1/2. TransactionEvidence.ui_state
+хранит их отдельно от основного state:1pending,2unknown. Поле ui_state_source
+содержит URL; raw_status и raw сохраняются. Unknown не повышается до success.
+Это метки интерфейса, не exhaustivebackendenum и не blockchainfinality.
+Фиксированные журналы имеют доказанное export-окно page1/limit999 и типы
+amount/system; общая пагинация/retention/полнота истории не доказаны.
+
+## Spot: metadata не заменяет request selector
+
+Неизвестная сеть может отображаться в withdrawal_networks, но prepare_withdrawal отклоняет USDT без установленного request_currency и multi-network non-USDT без доказанного selector. Иначе выбранные сети могли породить одинаковый payload с одним currencyId. Подтверждённые USDT eth/trx/bnb и single-native chain сохранены; новые сети/arb/baseSymbol не добавлены. Arbitrum в новых регрессиях - только synthetic catalog, не утверждение поддержки биржей. Проверка не выполняла реальный вывод.

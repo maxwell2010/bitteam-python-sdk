@@ -33,7 +33,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
     try:
         ok = asyncio.run(manage(args.action, args.profile))
-    except (SessionCacheError, OSError):
-        print("Session cache could not be accessed. No credentials were displayed.")
+    except Exception:
+        # Custom cache/protector and cleanup failures may contain private data.
+        print("Session operation failed. No credentials were displayed.")
         ok = False
     raise SystemExit(0 if ok else 1)

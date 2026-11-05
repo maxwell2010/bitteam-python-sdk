@@ -18,6 +18,7 @@ class BitTeamArchive:
             raise ValueError("Archive timeout must be between 0 and 60 seconds")
         self.auth, self.timeout, self._session = auth, timeout, None
         self._closed = False
+        self._close_task = None
 
     async def _get_session(self):
         if self._closed:
@@ -46,25 +47,46 @@ class BitTeamArchive:
                 if isinstance(value, bool) or not isinstance(value, int) or not low <= value <= high:
                     raise ValueError("Invalid archive " + key)
         headers = {}
+        lifecycle = None
+        auth = self.auth
         if private:
             if not isinstance(self.auth, SessionAuth) or self.auth.state != AuthState.READY:
                 raise AuthenticationError(401)
             transport = self.auth._transport
             if transport is None:
                 raise AuthenticationError(401)
+            auth._assert_owner()
             if transport._closed:
                 raise RuntimeError("The owning BitTeam client is closed")
             if (transport.base_url.rstrip("/") != "https://bit.team/trade/api" or
                     self.auth.auth_url.rstrip("/") != "https://auth2.bit.team/v1"):
                 raise ValueError("Production archive cannot receive credentials from a different API configuration")
             headers = self.auth.headers()
+            lifecycle = self.auth._lifecycle
+
+        def assert_current():
+            if self._closed:
+                raise RuntimeError("Archive client is closed")
+            if private:
+                if self.auth is not auth:
+                    raise asyncio.CancelledError("Authentication operation was invalidated")
+                auth._assert_lifecycle(lifecycle)
+                auth._assert_owner()
+                if auth._transport is not transport:
+                    raise asyncio.CancelledError("Authentication operation was invalidated")
+                if transport._closed:
+                    raise RuntimeError("The owning BitTeam client is closed")
+
         session = await self._get_session()
+        assert_current()
         try:
             async with session.get(self.BASE_URL + endpoint, params=query_params(params), headers=headers, allow_redirects=False) as response:
                 try:
                     result = await response.json()
                 except (ValueError, aiohttp.ContentTypeError):
+                    assert_current()
                     raise BitTeamAPIError(response.status if response.status >= 300 else 502) from None
+                assert_current()
                 if (not 200 <= response.status < 300 or (isinstance(result, dict) and
                         (result.get("ok") is False or result.get("status") is False or result.get("errors")))):
                     raise BitTeamAPIError(response.status, result.get("code") if isinstance(result, dict) else None)
@@ -86,7 +108,14 @@ class BitTeamArchive:
         return await self._request("/tradesByUser", params=params, private=True)
 
     async def close(self):
-        if not self._closed:
+        if self._close_task is None:
             self._closed = True
-            if self._session is not None:
-                await self._session.close()
+            async def finish():
+                if self._session is not None:
+                    await self._session.close()
+            self._close_task = asyncio.create_task(finish())
+            self._close_task.add_done_callback(
+                lambda task: None if task.cancelled() else task.exception())
+        # Caller cancellation must not abandon cleanup; concurrent and later
+        # callers observe the same completion or failure.
+        await asyncio.shield(self._close_task)

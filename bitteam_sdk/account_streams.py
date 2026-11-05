@@ -18,7 +18,12 @@ class AccountSubscription:
 
     async def __anext__(self):
         self.stream._require_session(self.lifecycle)
-        await self.stream.reauthenticate()
+        # A terminal or replaced iterator must deliver its stop/gap without
+        # opening a connection. Recovery is explicit through fresh references.
+        if (not self.subscription.closed
+                and self.subscription._terminal_error is None
+                and self.stream._subscriptions.get(self.subscription.path) is self.subscription):
+            await self.stream.reauthenticate()
         item = await anext(self.subscription)
         self.stream._require_session(self.lifecycle)
         return item
@@ -54,12 +59,17 @@ class BitTeamAccountStreams(BitTeamMarketStreams):
         self._reconnect_lock = asyncio.Lock()
 
     def _require_session(self, lifecycle=None):
+        self._assert_owner_open()
+        self.auth._assert_owner()
         if getattr(self.auth._transport, "_closed", False):
             raise RuntimeError("The owning BitTeam client is closed")
         if self.auth.state != AuthState.READY:
             raise AuthenticationError(401)
         if lifecycle is not None:
             self.auth._assert_lifecycle(lifecycle)
+
+    def _validate_rpc(self):
+        self._require_session(self._connection_lifecycle)
 
     async def _hello_payload(self):
         self._require_session()
@@ -98,9 +108,9 @@ class BitTeamAccountStreams(BitTeamMarketStreams):
             self._require_session(lifecycle)
             old = {id(sub): sub for sub in self._subscriptions.values()}
             old.update({id(proxy.subscription): proxy.subscription for proxy in requested})
-            await self.close()
             for subscription in old.values():
                 self._retire(subscription)
+            await self.close()
             self._require_session(lifecycle)
             await self.connect()
             replacements = {}
@@ -112,7 +122,7 @@ class BitTeamAccountStreams(BitTeamMarketStreams):
                             path, subscription.subscription.channel, expected_lifecycle=lifecycle)
                 self._require_session(lifecycle)
             except BaseException:
-                await self.close()
+                await self._close_after_failure()
                 raise
             return replacements
 

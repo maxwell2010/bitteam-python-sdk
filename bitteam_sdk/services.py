@@ -1,7 +1,22 @@
 """Convenience methods mapped from the existing trading services."""
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from datetime import datetime, timezone
-from .auth import BitTeamAPIError
+import asyncio
+from .auth import BitTeamAPIError, SessionAuth
+
+
+def private_read_guard(client):
+    """Bind a multi-read operation to one account, allowing token refresh."""
+    auth = getattr(client, "auth", None)
+    lifecycle = auth._lifecycle if isinstance(auth, SessionAuth) else None
+    def check():
+        if getattr(client, "_closed", False):
+            raise RuntimeError("Client is closed")
+        if lifecycle is not None:
+            if getattr(client, "auth", None) is not auth:
+                raise asyncio.CancelledError("Authentication operation was invalidated")
+            auth._assert_lifecycle(lifecycle)
+    return check
 
 
 def symbol_name(symbol):
@@ -21,6 +36,16 @@ def rows(payload, key):
 
 
 class ServiceMethods:
+    async def get_p2p_accounts(self):
+        """Read API-v2 account rows without inferring spot wallet semantics."""
+        from .p2p_workflows import read_p2p_accounts
+        return await read_p2p_accounts(self)
+
+    async def inspect_p2p_withdrawal(self, identifier):
+        """Inspect an existing P2P withdrawal; never create or confirm one."""
+        from .p2p_workflows import inspect_p2p_withdrawal
+        return await inspect_p2p_withdrawal(self, identifier)
+
     async def get_withdrawal_record(self, identifier, *, source):
         from .withdrawal_tracking import read_withdrawal
         return await read_withdrawal(self, identifier, source=source)
@@ -66,7 +91,10 @@ class ServiceMethods:
 
     async def request_network_withdrawal(self, symbol, *, amount, address, network=None):
         self._require_ready()
+        guard = private_read_guard(self)
         plan = await self.prepare_withdrawal(symbol, amount=amount, address=address, network=network)
+        guard()
+        self._require_ready()
         return await self.rest._request("POST", "/withdraw/create" if self.rest._session_mode else "/ccxt/withdraw", data=plan["payload"])
 
     async def get_withdrawal_permission(self, currency_id):
@@ -103,12 +131,30 @@ class ServiceMethods:
         return dict(pair, symbol=symbol_name(symbol).upper())
 
     async def get_ticker(self, symbol):
+        """Return finite Decimal quotes; unavailable last/bid/ask remain None."""
         pair = await self.get_trading_pair_info(symbol)
         book = await self.get_orderbook(symbol, 1)
+        def price(value):
+            try:
+                number = Decimal(str(value))
+            except (InvalidOperation, ValueError, TypeError):
+                raise BitTeamAPIError(502) from None
+            if not number.is_finite() or number < 0:
+                raise BitTeamAPIError(502)
+            return number
+        def best_quote(side):
+            if not isinstance(side, list):
+                raise BitTeamAPIError(502)
+            if not side:
+                return None
+            if not isinstance(side[0], (list, tuple)) or len(side[0]) < 2:
+                raise BitTeamAPIError(502)
+            return price(side[0][0])
+        last = pair.get("lastPrice")
         return {"symbol": symbol_name(symbol).upper(),
-            "last_price": Decimal(str(pair.get("lastPrice") or 0)),
-            "bid": Decimal(str(book["bids"][0][0])) if book["bids"] else None,
-            "ask": Decimal(str(book["asks"][0][0])) if book["asks"] else None,
+            "last_price": price(last) if last is not None else None,
+            "bid": best_quote(book["bids"]),
+            "ask": best_quote(book["asks"]),
             "change24": pair.get("change24"), "volume24": pair.get("volume24"),
             "change_24h": pair.get("change24"), "volume": pair.get("volume24"),
             "volume24USD": pair.get("volume24USD", pair.get("quoteVolume24")), "raw": pair}
@@ -125,10 +171,25 @@ class ServiceMethods:
         if not isinstance(limit, int) or not 1 <= limit <= 10000:
             raise ValueError("limit must be between 1 and 10000")
         trades = rows(await self.api.get_cmc_trades_by_pair(symbol_name(symbol)), "trades")
+        def timestamp(trade):
+            if "timestamp" not in trade:
+                return 0
+            raw = trade["timestamp"]
+            try:
+                value = Decimal(str(raw))
+                if isinstance(raw, bool) or not value.is_finite() or value != value.to_integral_value():
+                    raise ValueError
+                return int(value)
+            except (ValueError, TypeError, InvalidOperation):
+                raise BitTeamAPIError(502) from None
+        normalized = [(trade, timestamp(trade)) for trade in trades]
         result = []
-        for trade in sorted(trades, key=lambda trade: int(trade.get("timestamp", 0)), reverse=True)[:limit]:
+        for trade, milliseconds in sorted(normalized, key=lambda item: item[1], reverse=True)[:limit]:
             amount = trade.get("base_volume", trade.get("amount"))
-            created_at = datetime.fromtimestamp(int(trade["timestamp"]) / 1000, tz=timezone.utc).isoformat() if trade.get("timestamp") is not None else None
+            try:
+                created_at = datetime.fromtimestamp(milliseconds / 1000, tz=timezone.utc).isoformat() if "timestamp" in trade else None
+            except (ValueError, OverflowError, OSError):
+                raise BitTeamAPIError(502) from None
             result.append(dict(trade, id=trade.get("trade_id", trade.get("id")), symbol=symbol_name(symbol).upper(),
                 side=trade.get("type", trade.get("side")), status="filled", amount=amount,
                 executed=amount, createdAt=created_at))
@@ -146,18 +207,23 @@ class ServiceMethods:
             params["pairId"] = await self.rest._pair_id(symbol_name(symbol))
         return rows(await self.api.get_trades(params=params), "trades")
 
-    async def _iter_rows(self, fetch, *, page_size=100, max_pages=1000):
+    async def _iter_rows(self, fetch, *, page_size=100, max_pages=1000,
+                         private=False, identity_fields=("id", "trade_id", "orderId")):
         if isinstance(page_size, bool) or not isinstance(page_size, int) or not 1 <= page_size <= 1000:
             raise ValueError("Invalid page_size")
         if isinstance(max_pages, bool) or not isinstance(max_pages, int) or max_pages < 1:
             raise ValueError("Invalid max_pages")
+        guard = private_read_guard(self) if private else lambda: None
         seen = set()
         for page in range(max_pages):
+            guard()
             batch = await fetch(page_size, page * page_size)
+            guard()
             fresh = []
             for row in batch:
-                identity = row.get("id", row.get("trade_id", row.get("orderId")))
-                if identity is None:
+                identity = next((row[key] for key in identity_fields if key in row), None)
+                if (isinstance(identity, bool) or not isinstance(identity, (str, int))
+                        or isinstance(identity, str) and not identity.strip()):
                     raise BitTeamAPIError(502)
                 if str(identity) not in seen:
                     seen.add(str(identity))
@@ -165,7 +231,9 @@ class ServiceMethods:
             if batch and not fresh:
                 raise RuntimeError("Exchange repeated a pagination page")
             for row in fresh:
+                guard()
                 yield row
+                guard()
             if len(batch) < page_size:
                 return
         raise RuntimeError("Pagination reached max_pages; narrow the query")
@@ -180,7 +248,7 @@ class ServiceMethods:
 
     def iter_user_trades(self, *, pair=None, page_size=100, max_pages=1000):
         return self._iter_rows(lambda limit, offset: self.get_user_trades(limit, offset, pair=pair),
-                               page_size=page_size, max_pages=max_pages)
+                               page_size=page_size, max_pages=max_pages, private=True)
 
     async def get_candles_from_trades(self, symbol, interval="1m", *, limit=10000):
         from .marketdata import aggregate_trades
@@ -226,26 +294,11 @@ class ServiceMethods:
         return rows(payload, "trades")
 
     async def iter_user_orders(self, *, page_size=100, order_type="history", pair=None, max_pages=1000):
-        if not 1 <= page_size <= 1000 or max_pages < 1:
-            raise ValueError("Invalid pagination bounds")
-        seen = set()
-        for page in range(max_pages):
-            result = await self.get_user_orders(page_size, page * page_size, order_type, pair=pair)
-            fresh = []
-            for row in result:
-                identity = row.get("id", row.get("orderId"))
-                if identity is None:
-                    raise BitTeamAPIError(502)
-                if str(identity) not in seen:
-                    seen.add(str(identity))
-                    fresh.append(row)
-            if result and not fresh:
-                raise RuntimeError("Exchange pagination repeated a page")
-            for row in fresh:
-                yield row
-            if len(result) < page_size:
-                return
-        raise RuntimeError("Pagination reached max_pages; narrow the query")
+        async for row in self._iter_rows(
+                lambda limit, offset: self.get_user_orders(limit, offset, order_type, pair=pair),
+                page_size=page_size, max_pages=max_pages, private=True,
+                identity_fields=("id", "orderId")):
+            yield row
 
     async def get_order_info(self, order_id):
         self._require_ready()
@@ -295,7 +348,8 @@ class ServiceMethods:
     def iter_transactions(self, *, start=None, end=None, page_size=100, max_pages=1000):
         """Bounded, deduplicated reads; offsets are not a server snapshot."""
         return self._iter_rows(lambda limit, offset: self.get_transaction_history(
-            limit=limit, offset=offset, start=start, end=end), page_size=page_size, max_pages=max_pages)
+            limit=limit, offset=offset, start=start, end=end), page_size=page_size, max_pages=max_pages,
+            private=True, identity_fields=("id",))
 
     async def get_transactions(self, *, limit=100, offset=0, currency=None):
         self._require_ready()

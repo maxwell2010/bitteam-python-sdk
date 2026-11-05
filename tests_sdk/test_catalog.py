@@ -44,7 +44,7 @@ async def test_every_documented_endpoint_has_named_callable_and_contract(name):
     params, data, path = {}, {}, {}
     for parameter in entry["operation"].get("parameters", []):
         if parameter["in"] == "path":
-            path[snake(parameter["name"])] = "9"
+            path[snake(parameter["name"])] = sample(parameter)
         elif parameter["in"] == "query" and parameter.get("required"):
             params[parameter["name"]] = sample(parameter)
         elif parameter["in"] == "body":

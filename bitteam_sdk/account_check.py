@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 import getpass
 import json
 import os
+import sys
 from pathlib import Path
 import tempfile
 from urllib.parse import urlsplit
@@ -215,9 +216,9 @@ async def run_check(report_path, *, prompt=terminal_prompt, client=None, cache_p
     if keep_session and client.auth.cache is None:
         raise ValueError("Keeping a session requires an encrypted session cache")
     check = AccountCheck(client, report_path)
-    check.save()
     success = False
     try:
+        check.save()
         restored = False
         if client.auth.cache is not None:
             check.step("session_restore", "started")
@@ -284,37 +285,62 @@ async def run_check(report_path, *, prompt=terminal_prompt, client=None, cache_p
         check.step("balance_after_refresh", "ok", **shape)
         success = True
     except (KeyboardInterrupt, asyncio.CancelledError):
-        check.step("check", "cancelled")
-        return False
+        try:
+            check.step("check", "cancelled")
+        except Exception:
+            pass
+        raise
     except Exception as error:
         safe = {"error_type": type(error).__name__}
         if isinstance(error, BitTeamAPIError):
             safe.update(http_status=error.status, code=error.code if isinstance(error.code, int) else None)
-        check.step("check", "failed", **safe)
+        try:
+            check.step("check", "failed", **safe)
+        except Exception:
+            raise error
         print("Check stopped. Only sanitized diagnostics were saved; no automatic login retry.", flush=True)
         return False
     finally:
+        primary_error = sys.exc_info()[0] is not None
         try:
-            if keep_session:
-                client.auth.save_session()
-                check.step("encrypted_session_cache", "ok" if success else "preserved_after_incomplete_check",
-                           cache_saved=client.auth.cache.exists)
-            else:
-                await client.logout()
-                check.step("session_cleanup", "ok", local_cookies_cleared=not check.cookies())
-        except Exception as error:
-            check.step("session_cleanup", "failed", error_type=type(error).__name__)
-            success = False
-        try:
-            await client.close()
-        except Exception as error:
-            success = False
-            check.step("transport_close", "failed", error_type=type(error).__name__)
+            try:
+                if keep_session:
+                    client.auth.save_session()
+                    check.step("encrypted_session_cache", "ok" if success else "preserved_after_incomplete_check",
+                               cache_saved=client.auth.cache.exists)
+                else:
+                    await client.logout()
+                    check.step("session_cleanup", "ok", local_cookies_cleared=not check.cookies())
+            except Exception as error:
+                success = False
+                try:
+                    check.step("session_cleanup", "failed", error_type=type(error).__name__)
+                except Exception:
+                    raise error
+        except BaseException:
+            if not primary_error:
+                raise
         finally:
-            check.report["status"] = "passed" if success else "incomplete"
-            check.report["finished_at_utc"] = datetime.now(timezone.utc).isoformat()
-            check.save()
-            print("Report:", check.path, flush=True)
+            # Closing the transport must not depend on diagnostics or cache writes.
+            pending_error = primary_error or sys.exc_info()[0] is not None
+            try:
+                await client.close()
+            except BaseException as error:
+                success = False
+                if not pending_error:
+                    if not isinstance(error, Exception):
+                        raise
+                    check.step("transport_close", "failed", error_type=type(error).__name__)
+            finally:
+                pending_error = pending_error or sys.exc_info()[0] is not None
+                check.report["status"] = "passed" if success and not pending_error else "incomplete"
+                check.report["finished_at_utc"] = datetime.now(timezone.utc).isoformat()
+                try:
+                    check.save()
+                except Exception:
+                    if not pending_error:
+                        raise
+                print("Report:", check.path, flush=True)
     return success
 
 

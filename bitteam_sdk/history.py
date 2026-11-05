@@ -5,11 +5,13 @@ The underlying server returns an inclusive end, so that row is excluded here.
 This traverses every requested time chunk; it cannot manufacture candles the
 server omits or guarantee that an exchange retains data before a listing.
 """
+import asyncio
 from datetime import datetime
+from dataclasses import dataclass
 
 from .models import Kline
 from .services import symbol_name
-from .websocket import BitTeamWebSocket, validate_candle_values
+from .websocket import BitTeamWebSocket, KlineSubscription, validate_candle_values
 
 
 PERIOD_SECONDS = {'1m': 60, '5m': 300, '15m': 900, '1h': 3600, '1d': 86400}
@@ -45,19 +47,7 @@ def positive_integer(value, name):
     return value
 
 
-async def iter_klines(symbol, interval='1m', *, start, end, source=None,
-                      chunk_bars=1000, limit=1_000_000, max_requests=10_000):
-    """Yield all supplied candles in [start, end) in chronological order.
-
-    ``source`` may be an existing BitTeamWebSocket or a compatible provider.
-    Caller-owned providers are never closed. Internally owned connections are
-    closed on success, error, cancellation or explicit generator.aclose().
-
-    ``limit`` is a maximum allowed number of candles, not a truncation request.
-    Exceeding it raises HistoryLimitError. Sparse/empty chunks are valid and
-    produce no artificial rows. Requests exceeding max_requests are rejected
-    before accessing the provider.
-    """
+def _history_windows(symbol, interval, start, end, chunk_bars, limit, max_requests):
     name = symbol_name(symbol)
     if interval not in PERIOD_SECONDS:
         raise ValueError('Unsupported candle interval')
@@ -79,10 +69,29 @@ async def iter_klines(symbol, interval='1m', *, start, end, source=None,
         if len(windows) > max_requests:
             raise HistoryLimitError('History requires more than max_requests; narrow the range or increase the bound')
         cursor = stop
+    return name, start, end, period, windows
+
+
+async def iter_klines(symbol, interval='1m', *, start, end, source=None,
+                      chunk_bars=1000, limit=1_000_000, max_requests=10_000):
+    """Yield all supplied candles in [start, end) in chronological order.
+
+    ``source`` may be an existing BitTeamWebSocket or a compatible provider.
+    Caller-owned providers are never closed. Internally owned connections are
+    closed on success, error, cancellation or explicit generator.aclose().
+
+    ``limit`` is a maximum allowed number of candles, not a truncation request.
+    Exceeding it raises HistoryLimitError. Sparse/empty chunks are valid and
+    produce no artificial rows. Requests exceeding max_requests are rejected
+    before accessing the provider.
+    """
+    name, start, end, period, windows = _history_windows(
+        symbol, interval, start, end, chunk_bars, limit, max_requests)
     owned = source is None
     provider = BitTeamWebSocket() if owned else source
     count = 0
     previous = None
+    failure = None
     try:
         for lower, upper in windows:
             response = await provider.get_klines(name, interval, start=lower, end=upper)
@@ -116,9 +125,18 @@ async def iter_klines(symbol, interval='1m', *, start, end, source=None,
                 count += 1
                 previous = timestamp
                 yield unique[timestamp]
+    except BaseException as error:
+        failure = error
+        raise
     finally:
         if owned:
-            await provider.close()
+            try:
+                await provider.close()
+            except BaseException:
+                # Explicit aclose is a cleanup operation: its own failure must
+                # surface, while a prior request failure/cancellation wins.
+                if failure is None or isinstance(failure, GeneratorExit):
+                    raise
 
 
 async def fetch_klines(symbol, interval='1m', *, start, end, source=None,
@@ -126,3 +144,124 @@ async def fetch_klines(symbol, interval='1m', *, start, end, source=None,
     """Collect iter_klines. A limit failure raises instead of returning a partial list."""
     return [row async for row in iter_klines(symbol, interval, start=start, end=end, source=source,
                                             chunk_bars=chunk_bars, limit=limit, max_requests=max_requests)]
+
+
+@dataclass(frozen=True)
+class KlineRecovery:
+    """Bounded history and a replacement iterator, without an atomic handoff."""
+    candles: tuple[Kline, ...]
+    subscription: KlineSubscription
+    start: int
+    end: int
+
+
+async def recover_klines(subscription, *, start, end, chunk_bars=1000,
+                         limit=1_000_000, max_requests=10_000, _owner_guard=None):
+    """Explicitly replace a history subscription and fetch caller-held bounds.
+
+    Reconnect happens first, so the replacement buffers live publications while
+    history is fetched. Historical candles and the iterator are returned
+    separately: timestamps can overlap, an open candle can change, and there is
+    no server sequence or atomic boundary. Empty history is not proof of packet
+    loss or complete history. No bars are invented and no events are replayed.
+    Caller-owned history transport remains open. Failure/cancellation closes
+    the created replacement and returns no partial recovery result.
+    """
+    if not isinstance(subscription, KlineSubscription):
+        raise ValueError('Expected a history candle subscription')
+    # Snapshot the requested market and all bounds before reconnect can yield.
+    symbol, interval = subscription.symbol, subscription.interval
+    _, start, end, _, _ = _history_windows(
+        symbol, interval, start, end, chunk_bars, limit, max_requests)
+    source, path = subscription.client, subscription.path
+    cancelled = False
+    owner_failed = False
+    replacement = None
+    cleanup_task = None
+
+    def check_owner():
+        nonlocal owner_failed
+        try:
+            source._assert_owner_open()
+            if _owner_guard is not None:
+                _owner_guard()
+        except BaseException:
+            owner_failed = True
+            raise
+
+    def check():
+        check_owner()
+        if cancelled:
+            raise asyncio.CancelledError()
+
+    async def cleanup():
+        nonlocal cleanup_task
+        # A closed high-level owner cannot retain any late reopened source.
+        try:
+            check_owner()
+        except BaseException:
+            pass
+        if cleanup_task is None:
+            if owner_failed:
+                cleanup_task = asyncio.create_task(source.close())
+            elif replacement is not None:
+                cleanup_task = asyncio.create_task(replacement.close())
+            else:
+                return
+        while not cleanup_task.done():
+            try:
+                await asyncio.shield(cleanup_task)
+            except asyncio.CancelledError:
+                continue
+            except BaseException:
+                break
+        try:
+            cleanup_task.result()
+        except BaseException:
+            pass  # The initiating operation failure remains primary.
+
+    class GuardedSource:
+        async def get_klines(self, *args, **kwargs):
+            check()
+            rows = await source.get_klines(*args, **kwargs)
+            check()
+            return rows
+
+    async def work():
+        nonlocal replacement
+        try:
+            check()
+            replacements = await source.reconnect([subscription])
+            replacement = replacements[path]
+            check()
+            candles = await fetch_klines(symbol, interval, start=start, end=end,
+                                        source=GuardedSource(), chunk_bars=chunk_bars,
+                                        limit=limit, max_requests=max_requests)
+            check()
+            return KlineRecovery(tuple(candles), replacement, start, end)
+        except BaseException:
+            await cleanup()
+            raise
+
+    task = asyncio.create_task(work())
+    try:
+        return await asyncio.shield(task)
+    except asyncio.CancelledError:
+        # Drain even an I/O implementation which suppresses child cancellation.
+        # The shared flag prevents a late reply dispatching another stage.
+        cancelled = True
+        task.cancel()
+        while not task.done():
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError:
+                continue
+            except BaseException:
+                break
+        if not task.cancelled():
+            try:
+                task.result()
+            except BaseException:
+                pass
+        await cleanup()
+        raise

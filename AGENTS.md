@@ -3,6 +3,7 @@
 User requirements:
 - Continue implementation and fix reproducible errors; distinguish offline contracts from actual live verification.
 - Release authorization (2026-11-05) supersedes the earlier verification freeze: version/changelog changes, isolated wheel/sdist/source builds and install checks, PR #1 merge after checks, tag and GitHub release with reviewed public assets are authorized. No PyPI publishing or Telegram sending. Never bypass network/approval/security denials.
+- Publication hold (latest user instruction after policy denial): do not merge PR #1, create/push a tag, create/upload a GitHub release, or switch channels/credentials/UI to bypass the denial. Keep a reviewable draft PR until supported policy resolution and a new explicit go-ahead. Source commits/push over the already allowed Git path, builds and verification remain authorized.
 - Publish only after concrete blockers are resolved, exact-head PR checks and main checks pass, artifacts/installs are inspected and notes preserve external limitations. Do not invent a license; currently unspecified.
 - Public repository: never commit credentials, cookies, session caches, account responses, databases, logs or legacy service config files.
 - Never perform real trades, withdrawals, financial confirmations, send verification codes, or change account settings during tests. Synthetic tests are authorized.

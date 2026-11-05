@@ -19,6 +19,17 @@ import aiohttp
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from bitteam_sdk.account_check import window_prompt
 
+# Hosted Windows clipboard/focus cold starts may exceed the previous 5 seconds.
+# Each case remains bounded; the workflow's job timeout is the hard outer bound.
+CASE_TIMEOUT_SECONDS = 30 if sys.platform == "win32" else 5
+
+
+def checkpoint(root):
+    """Observe a cooperative watchdog after nested Tk event processing."""
+    check = getattr(root, "_sdk_driver_checkpoint", None)
+    if check is not None:
+        check()
+
 
 def widgets(root):
     children = root.winfo_children()[0].winfo_children()
@@ -32,6 +43,7 @@ def clipboard(root, value):
     root.clipboard_clear()
     root.clipboard_append(value)
     root.update()
+    checkpoint(root)
     actual = root.clipboard_get()
     assert actual == value, f"Synthetic clipboard mismatch: expected_length={len(value)}, actual_length={len(actual)}"
 
@@ -41,9 +53,11 @@ def keyboard(root, entry, sequence):
     # delivering the synthetic key, then queue it through the real Tk bindings.
     entry.focus_force()
     root.update()
+    checkpoint(root)
     assert root.focus_get() is entry, "Synthetic key target did not receive focus"
     entry.event_generate(sequence, when="tail")
     root.update()
+    checkpoint(root)
 
 
 def expect_text(root, entry, value):
@@ -125,8 +139,21 @@ def run_case(label, driver, expected):
         root = original(*args, **kwargs)
         roots.append(root)
         destroy = root.destroy
+        active = False
+        closed = False
+        expired = None
+
+        def check_deadline():
+            if expired is not None:
+                raise expired
+
+        root._sdk_driver_checkpoint = check_deadline
 
         def clear_and_destroy():
+            nonlocal closed
+            if closed:
+                return
+            closed = True
             try:
                 # Timed focus/watchdog callbacks must not outlive this dialog
                 # and surface as Tcl errors in the next synthetic mainloop.
@@ -139,18 +166,34 @@ def run_case(label, driver, expected):
         root.destroy = clear_and_destroy
 
         def drive():
+            nonlocal active
+            active = True
             try:
+                check_deadline()
                 driver(root)
+                check_deadline()
             except BaseException as error:
-                errors.append(error)
-                root.destroy()
+                if not errors:
+                    errors.append(error)
+            finally:
+                active = False
+                if errors:
+                    root.destroy()
 
         def timeout():
-            errors.append(AssertionError("Synthetic GUI driver did not close dialog"))
-            root.destroy()
+            nonlocal expired
+            if closed or expired is not None:
+                return
+            expired = AssertionError("Synthetic GUI driver did not close dialog")
+            errors.append(expired)
+            # root.update() can dispatch this callback inside the driver. Do
+            # not destroy Tcl under its live clipboard/focus stack: its next
+            # checkpoint raises the deadline, then drive's finally closes once.
+            if not active:
+                root.destroy()
 
         root.after(150, drive)
-        root.after(5000, timeout)
+        root.after(CASE_TIMEOUT_SECONDS * 1000, timeout)
         return root
 
     try:
@@ -193,6 +236,7 @@ def main(argv=None):
         for _, label, driver, expected in cases:
             run_case(label, driver, expected)
     print(json.dumps({"check": "real-tk-synthetic-dialog", "tk": tk.TkVersion,
+                      "case_timeout_seconds": CASE_TIMEOUT_SECONDS,
                       "passed": [name for name, *_ in cases],
                       "account_flow": "not invoked"}))
 

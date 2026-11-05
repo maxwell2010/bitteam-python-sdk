@@ -175,3 +175,8 @@ Final boundedreconciliationfull1592passed1nativeDPAPIskip (1593collected),
 skipaudit/sourcepassed;core-I38exports/4optionalsabsent passed. LinuxactualGUI6
 explicitflagpassed; verifyWindowsGUIstep/logs separately from overall10jobstatus.
 Independentcrossreviewcomplete. Exactnewhead/CI remainsinPR#1; no build/merge.
+
+c6f64e8 CIWindowsGUI reallyran andfailedfirstCtrlV (pytest1593passed each,
+Linux4/PG/corepassed). Driver-onlyfocus/update/queuedkey +realclipboardreadback
+added, no fakepaste/prodGUIchange;Linuxactual6+full1592pass1skip/audit passed.
+ReplacementWindowsGUIstep/logs mustproveoutcome, notoldoveralljobassumptions.

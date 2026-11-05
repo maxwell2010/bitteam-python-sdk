@@ -31,16 +31,33 @@ def widgets(root):
 def clipboard(root, value):
     root.clipboard_clear()
     root.clipboard_append(value)
+    root.update()
+    actual = root.clipboard_get()
+    assert actual == value, f"Synthetic clipboard mismatch: expected_length={len(value)}, actual_length={len(actual)}"
+
+
+def keyboard(root, entry, sequence):
+    # Windows focus transfer is asynchronous. Process WM_SETFOCUS before
+    # delivering the synthetic key, then queue it through the real Tk bindings.
+    entry.focus_force()
+    root.update()
+    assert root.focus_get() is entry, "Synthetic key target did not receive focus"
+    entry.event_generate(sequence, when="tail")
+    root.update()
+
+
+def expect_text(root, entry, value):
+    actual = entry.get()
+    assert actual == value, (f"Synthetic entry mismatch: expected_length={len(value)}, "
+                             f"actual_length={len(actual)}, focused={root.focus_get() is entry}")
 
 
 def secret_controls(root):
     entry, buttons, labels, children = widgets(root)
     assert str(buttons["Продолжить"].cget("state")) == "disabled"
     clipboard(root, " synthetic password ")
-    entry.focus_force()
-    entry.event_generate("<Control-KeyPress-v>")
-    root.update()
-    assert entry.get() == " synthetic password "
+    keyboard(root, entry, "<Control-KeyPress-v>")
+    expect_text(root, entry, " synthetic password ")
     assert any(item.cget("text") == "Введено символов: 20" for item in labels)
     assert str(buttons["Продолжить"].cget("state")) == "normal"
     toggle = next(item for item in children if isinstance(item, ttk.Checkbutton))
@@ -56,9 +73,8 @@ def secret_controls(root):
     entry.insert(0, "replace me")
     entry.selection_range(0, tk.END)
     clipboard(root, "synthetic replacement")
-    entry.event_generate("<Shift-Insert>")
-    root.update()
-    assert entry.get() == "synthetic replacement"
+    keyboard(root, entry, "<Shift-Insert>")
+    expect_text(root, entry, "synthetic replacement")
     buttons["Продолжить"].invoke()
 
 
@@ -80,7 +96,7 @@ def code_controls(value):
         buttons["Вставить"].invoke()
         assert entry.get() == value
         assert any(item.cget("text") == f"Введено символов: {len(value)}" for item in labels)
-        root.event_generate("<Return>")
+        keyboard(root, entry, "<Return>")
     return drive
 
 

@@ -771,3 +771,12 @@ no installed-wheel/SDKinstall proof is claimed. Independentreviews passed.
 ActualLinuxGUI6cases passed after explicitdisposable flag. WindowsGUI must be
 read from actual CI step outcome/logs, not merely job success (a skippedstep is
 not GUI runtime evidence). Exact replacementSHA/10jobs recorded in draftPR#1.
+
+CIc6f64e8/run42050265479: all4Linux1592pass1skip, actualPG12/core38 passed;
+all4Windows1593pytestpassed+skipaudit passed but the REAL GUIstep executed and
+failed its first CtrlV entry assertion. This was not labelled WindowsGUI success
+or SDKGUI bug without further evidence. Driver now processes focus events before
+queued key delivery and verifies syntheticclipboard readback, retaining actual
+OSclipboard/Tkbindings; diagnostics only lengths/focus, productionGUI unchanged.
+Linux actualTk6 rerun and full1592pass1skip+audit passed after driver-only change.
+Windows outcome requires replacement exactSHA CI, recorded in PR#1 separately.

@@ -104,14 +104,19 @@ class BitTeamMarketStreams(BitTeamWebSocket):
 
     @sanitized_transport
     async def connect(self):
+        self._assert_owner_open()
         await self._await_subscription_cleanup()
+        self._assert_owner_open()
         async with self._connect_lock:
+            self._assert_owner_open()
             if self.ws is not None and not self.ws.closed:
                 return
             await self._stop_reader()
+            self._assert_owner_open()
             # Call before opening the socket so authentication hook failures
             # cannot leave a connection or newly allocated session behind.
             hello = await self._hello_payload()
+            self._assert_owner_open()
             if self._session is None or self._session.closed:
                 try:
                     import certifi
@@ -126,8 +131,10 @@ class BitTeamMarketStreams(BitTeamWebSocket):
                         self.url, protocols=["nes"], origin="https://bit.team",
                         max_msg_size=8 * 1024 * 1024, timeout=aiohttp.ClientWSTimeout(ws_close=5)),
                     self.timeout)
+                self._assert_owner_open()
                 self._reader_task = asyncio.create_task(self._reader())
                 await self._rpc(hello)
+                self._assert_owner_open()
             except BaseException:
                 await self._close_after_failure(locked=True)
                 raise
@@ -137,7 +144,9 @@ class BitTeamMarketStreams(BitTeamWebSocket):
             return await self._subscribe_unlocked(path, channel)
 
     async def _subscribe_unlocked(self, path, channel):
+        self._assert_owner_open()
         await self.connect()
+        self._assert_owner_open()
         existing = self._subscriptions.get(path)
         if existing is not None and not existing.closed:
             return existing
@@ -145,6 +154,7 @@ class BitTeamMarketStreams(BitTeamWebSocket):
         self._subscriptions[path] = subscription
         try:
             await self._rpc({"type": "sub", "path": path})
+            self._assert_owner_open()
         except BaseException:
             await self._retire_uncertain_subscription()
             subscription.closed = True
@@ -171,6 +181,7 @@ class BitTeamMarketStreams(BitTeamWebSocket):
         A failed/cancelled batch closes all new subscriptions; it never returns
         a partially restored set. Callers control retry timing and attempts.
         """
+        self._assert_owner_open()
         requested = {}
         for subscription in subscriptions:
             if not isinstance(subscription, MarketSubscription) or subscription.client is not self:
@@ -185,17 +196,21 @@ class BitTeamMarketStreams(BitTeamWebSocket):
                 raise ValueError("Expected a confirmed public market channel")
             requested[path] = subscription
         async with self._subscription_lock:
+            self._assert_owner_open()
             old = {id(sub): sub for sub in self._subscriptions.values()}
             old.update({id(sub): sub for sub in requested.values()})
             # Retire before close yields to the reader or waiting consumers.
             for subscription in old.values():
                 self._retire(subscription)
             await self.close()
+            self._assert_owner_open()
             restored = {}
             try:
                 await self.connect()
+                self._assert_owner_open()
                 for path, subscription in requested.items():
                     restored[path] = await self._subscribe_unlocked(path, subscription.channel)
+                    self._assert_owner_open()
                 return restored
             except BaseException:
                 for subscription in restored.values():

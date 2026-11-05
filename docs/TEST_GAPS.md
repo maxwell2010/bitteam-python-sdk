@@ -780,3 +780,64 @@ queued key delivery and verifies syntheticclipboard readback, retaining actual
 OSclipboard/Tkbindings; diagnostics only lengths/focus, productionGUI unchanged.
 Linux actualTk6 rerun and full1592pass1skip+audit passed after driver-only change.
 Windows outcome requires replacement exactSHA CI, recorded in PR#1 separately.
+
+## Owned recovery, resume generation and catalog follow-up after5edfd011
+
+Baseline1592passed1DPAPIskip+audit; fullnewlocal1674passed1DPAPIskip before
+boundedharness addition, networkguard active. Scopedfixes cross-reviewed.
+
+| Boundary | Reproduced result/fix | Evidence limits |
+| --- | --- | --- |
+| Public ownerclose | Stock market HELLO/reconnect raced client.close and opened thirdsocket/session after close. Owned history/market/account now bind clientliveness; checks surround allocation/dispatch/awaits. Standalone WS remains reusable. | RealSDK client/helper/connect/RPC with RAMpeers, not SessionAuth-only and no BitTeam live. Cleanup allowed regardless ownerstate. |
+| Composite late I/O | History/L2 could return after ownerclose/cancel suppressed by compatible I/O. Guard allstages/historychunks, shield/drain onechild, refuse late result/nextstage; close FULLcapturedsource when ownerclosed. | Stock HELLO race distinguished from deliberately overridden reconnect/fetch/snapshot cancel-suppression tests. No claim ordinary stock publicRESTGET lost existingguards. Drain depends on actual I/O completion/deadline. |
+| Resume/new generation | Old validation401 erased newerREADY tokens. Failure tagged with internal numeric generation matching actual requestheaders; preserve newer credentials, propagate olderror. Auto-refresh then currentBrejection stillclearsB; lateB after independentC preservesC. | RealRESTrequest orchestration with RAMcache/cookies; no token added to error, no endpoint/expiry semantics invented. Existing failedrefresh/EXPIRED cleanup retained. |
+| Recorder resources | ActualSQLite DDLfailure leaked partialconnection; workerSQLerror masked cancel; canceledread releasedlock whileworker alive; normalSQL/JSONerror masked bycloseerror. Closepartialconnection, drainworkers underlock and preserveprimary; standalonecloseerror surfaces. | SynthetictemporarySQLite and threadEvent barriers; no userdatabase/cache. ':memory:' explicitly rejected beforeI/O instead of claiming unsupported persistence. |
+| Swagger PATH | Actual bundled /pair/{name} constraints were skipped after str conversion; None/bool/short/long/invalidpattern sent. Apply actualpathschema before escape, preserve documentedint/stringID compatibility and integerconstraints. | SnapshotOpenAPI contract, zero fake dispatch on badpaths, not a new servervalidation claim. Catalogtest sample repaired to fit schema, constraints not weakened. |
+| Trade timestamps | PubliccreatedAt acceptedbool/truncatedfraction; malformedtimestamps now APIError502, finitewhole milliseconds validated before sort/date. Missing timestamp remainsNone. | Raw timestamp preserved; downstreamaggregate ALREADY rejected originalfractions beforethisfix, so this is not claimed as a prior fabricated-candle acceptance bug. |
+
+Crossreviews: history/commonownerhooks/account+book130passed, L2/history/WS81,
+recorder12actualSQLite, catalog/services186, resume/cache/auth42pass1DPAPIskip.
+These are scoped intermediate checks, not totals or an all-defects certificate.
+No new BitTeam live/account/OTP/financial/cache/secret access, SDKinstall,
+ZIP/wheel/sdist/version/tag/release/publication/merge. WindowsactualGUI5edfd011
+was already proven on all4Python versions; replacementexactSHA CI must repeat it.
+
+Remainingwork classification: no confirmed scoped repro is knowingly left open.
+Further local findings remain actionable when reproduced. Caller policy still
+owns historyoverlap/checkpoints and interpretation of unsequenced raw L2.
+External proof requires authorized real account/server or primary contract:
+general-token renewal, actual expiry/revocation/delivery, retention/availability,
+financial finality/IDlink and snapshotanchor/sequence/deltarules/replay. Such
+operations/specifications are absent or prohibited here; counts cannot close them.
+A bounded offline verification harness/blocked external plan is supplied separately;
+it must never label its offline success as backend verification.
+
+### Concrete bounded verification and blockers
+
+`python -I -B scripts_sdk/check_bounded_verification.py` prints a plan only:
+status not_executed, max_requests0. It imports no SDK, profile or network client.
+`--offline` executes exactly9 fixed owner/recovery/auth/recorder/schema testfiles
+under the existing socket guard with a60-second child deadline; no arbitrary
+pytest target or live/account/financial mode exists. It returns only sanitized
+passed/failed/timed_out OFFLINE status, not raw child output or backend success.
+The harness and8safetycases ran successfully; current scope adds no live proof.
+
+The non-executing futurepublicplan is bounded to2SDKreads
+(get_orderbook_snapshot/get_klines),8seconds percall,0events; it needs separate
+public-service authorization/availability and cannot prove replay or retention.
+Other cases remain blocked with maxrequests0: actual account expiry/renewal/
+revocation/delivery requires an expressly authorized controlledaccount and a
+primary authcontract; ordered snapshot/delta recovery requires a primary sequence/
+anchor/deltarules/replay contract; financialfinality/IDlinks require primary
+proof and separately authorized financialoperations. These are absent/prohibited,
+not unknown statuses promoted to success. This harness does NOT implement those
+live/financial modes or invent missing response shapes. Physical/RU keyboard
+layout also remains outside generated-key desktop checks, not a backend claim.
+
+Final local owner/lifecycle suite after boundedharness: **1682 passed,1 native
+DPAPI skip**,1683collected, LinuxPython3.12.14; skip audit/source checks passed.
+Core-only -I source smoke38exports/4optionalsabsent passed without SDKinstall.
+Boundedharness defaultplan and actual --offline passed;8safetycases ensure fixed
+selection/deadline/failureexit/noexternalmode. Childoutput is DEVNULL (not buffered),
+so the60-second harness cannot accumulate rawdiagnostic output in memory.
+Exact updatedSHA/10-job CI including actualWindowsGUI remains separate in PR#1.

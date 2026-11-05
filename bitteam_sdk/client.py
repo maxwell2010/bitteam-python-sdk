@@ -22,6 +22,10 @@ class BitTeamClient(ServiceMethods):
         self._closed = False
         self._close_task = None
 
+    def _assert_open(self):
+        if self._closed:
+            raise RuntimeError("Client is closed")
+
     @property
     def auth(self):
         return self.rest.auth
@@ -161,6 +165,7 @@ class BitTeamClient(ServiceMethods):
         if self._market is None:
             from .market_streams import BitTeamMarketStreams
             self._market = BitTeamMarketStreams()
+            self._market._owner_guard = self._assert_open
         return self._market
 
     @property
@@ -170,6 +175,7 @@ class BitTeamClient(ServiceMethods):
         if self._account_streams is None:
             from .account_streams import BitTeamAccountStreams
             self._account_streams = BitTeamAccountStreams(self._session_auth())
+            self._account_streams._owner_guard = self._assert_open
         return self._account_streams
 
     @property
@@ -206,6 +212,7 @@ class BitTeamClient(ServiceMethods):
         if self._history is None:
             from .websocket import BitTeamWebSocket
             self._history = BitTeamWebSocket()
+            self._history._owner_guard = self._assert_open
         return self._history
 
     async def get_klines(self, symbol, interval="1m", *, start=None, end=None):
@@ -223,7 +230,8 @@ class BitTeamClient(ServiceMethods):
             raise RuntimeError("Client is closed")
         if not isinstance(subscription, KlineSubscription) or subscription.client is not self._history:
             raise ValueError("Expected a history subscription belonging to this client")
-        return await recover_klines(subscription, start=start, end=end, **bounds)
+        return await recover_klines(subscription, start=start, end=end,
+                                    _owner_guard=self._assert_open, **bounds)
 
     async def reconcile_book(self, symbol, subscription):
         """Return a fresh snapshot and subscription; raw updates are not applied."""

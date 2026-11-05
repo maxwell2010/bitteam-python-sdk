@@ -124,14 +124,25 @@ class BitTeamWebSocket:
         self._subscriptions = {}
         self._sequence = 0
         self._subscription_cleanup = None
+        self._owner_guard = None
+
+    def _assert_owner_open(self):
+        # Standalone streams remain reusable after close; a client-owned stream
+        # must never reconnect after that client's permanent close boundary.
+        if self._owner_guard is not None:
+            self._owner_guard()
 
     @sanitized_transport
     async def connect(self):
+        self._assert_owner_open()
         await self._await_subscription_cleanup()
+        self._assert_owner_open()
         async with self._connect_lock:
+            self._assert_owner_open()
             if self.ws is not None and not self.ws.closed:
                 return
             await self._stop_reader()
+            self._assert_owner_open()
             if self._session is None or self._session.closed:
                 try:
                     import certifi
@@ -146,12 +157,14 @@ class BitTeamWebSocket:
                                              max_msg_size=8 * 1024 * 1024,
                                              timeout=aiohttp.ClientWSTimeout(ws_close=5)),
                     self.timeout)
+                self._assert_owner_open()
             except BaseException:
                 await self._close_after_failure(locked=True)
                 raise
             self._reader_task = asyncio.create_task(self._reader())
             try:
                 await self._rpc({"type": "hello", "version": "2", "auth": {"headers": {"Authorization": "jwt"}}})
+                self._assert_owner_open()
             except BaseException:
                 await self._close_after_failure(locked=True)
                 raise
@@ -168,6 +181,7 @@ class BitTeamWebSocket:
 
     def _validate_rpc(self):
         """Hook for private streams to check the owner at dispatch boundaries."""
+        self._assert_owner_open()
 
     @sanitized_transport
     async def _rpc(self, payload):
@@ -190,7 +204,9 @@ class BitTeamWebSocket:
 
         try:
             # Backpressure while sending belongs to the same RPC deadline.
-            return await asyncio.wait_for(exchange(), self.timeout)
+            result = await asyncio.wait_for(exchange(), self.timeout)
+            self._validate_rpc()
+            return result
         finally:
             self._pending.pop(identity, None)
             if not future.done():
@@ -307,7 +323,9 @@ class BitTeamWebSocket:
             return await self._subscribe_kline(symbol, interval)
 
     async def _subscribe_kline(self, symbol, interval):
+        self._assert_owner_open()
         await self.connect()
+        self._assert_owner_open()
         name = symbol_name(symbol)
         path = "/klines/" + name + "/" + STREAM_RESOLUTIONS[interval]
         existing = self._subscriptions.get(path)
@@ -317,6 +335,7 @@ class BitTeamWebSocket:
         self._subscriptions[path] = subscription
         try:
             await self._rpc({"type": "sub", "path": path})
+            self._assert_owner_open()
         except BaseException:
             await self._retire_uncertain_subscription()
             raise
@@ -337,6 +356,7 @@ class BitTeamWebSocket:
         promised; reconcile through get_klines using application-held bounds.
         Failure/cancellation closes the partial batch and returns no replacements.
         """
+        self._assert_owner_open()
         requested = {}
         for subscription in subscriptions:
             if not isinstance(subscription, KlineSubscription) or subscription.client is not self:
@@ -349,16 +369,20 @@ class BitTeamWebSocket:
                 raise ValueError("Expected an unchanged history subscription path")
             requested[path] = subscription
         async with self._subscription_lock:
+            self._assert_owner_open()
             old = {id(sub): sub for sub in self._subscriptions.values()}
             old.update({id(sub): sub for sub in requested.values()})
             for subscription in old.values():
                 self._retire(subscription)
             await self.close()
+            self._assert_owner_open()
             restored = {}
             try:
                 await self.connect()
+                self._assert_owner_open()
                 for path, subscription in requested.items():
                     restored[path] = await self._subscribe_kline(subscription.symbol, subscription.interval)
+                    self._assert_owner_open()
                 return restored
             except BaseException:
                 for subscription in restored.values():

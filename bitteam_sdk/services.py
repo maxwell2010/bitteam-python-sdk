@@ -171,10 +171,25 @@ class ServiceMethods:
         if not isinstance(limit, int) or not 1 <= limit <= 10000:
             raise ValueError("limit must be between 1 and 10000")
         trades = rows(await self.api.get_cmc_trades_by_pair(symbol_name(symbol)), "trades")
+        def timestamp(trade):
+            if "timestamp" not in trade:
+                return 0
+            raw = trade["timestamp"]
+            try:
+                value = Decimal(str(raw))
+                if isinstance(raw, bool) or not value.is_finite() or value != value.to_integral_value():
+                    raise ValueError
+                return int(value)
+            except (ValueError, TypeError, InvalidOperation):
+                raise BitTeamAPIError(502) from None
+        normalized = [(trade, timestamp(trade)) for trade in trades]
         result = []
-        for trade in sorted(trades, key=lambda trade: int(trade.get("timestamp", 0)), reverse=True)[:limit]:
+        for trade, milliseconds in sorted(normalized, key=lambda item: item[1], reverse=True)[:limit]:
             amount = trade.get("base_volume", trade.get("amount"))
-            created_at = datetime.fromtimestamp(int(trade["timestamp"]) / 1000, tz=timezone.utc).isoformat() if trade.get("timestamp") is not None else None
+            try:
+                created_at = datetime.fromtimestamp(milliseconds / 1000, tz=timezone.utc).isoformat() if "timestamp" in trade else None
+            except (ValueError, OverflowError, OSError):
+                raise BitTeamAPIError(502) from None
             result.append(dict(trade, id=trade.get("trade_id", trade.get("id")), symbol=symbol_name(symbol).upper(),
                 side=trade.get("type", trade.get("side")), status="filled", amount=amount,
                 executed=amount, createdAt=created_at))

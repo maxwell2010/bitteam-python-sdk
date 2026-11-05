@@ -132,9 +132,24 @@ class EndpointAPI:
             if key in container:
                 # Path ids accept int as well as a string representation.
                 if where == "path":
-                    value = str(container[key])
+                    raw_value = container[key]
+                    if isinstance(raw_value, bool) or not isinstance(raw_value, (str, int)):
+                        raise ValueError("Invalid path parameter")
+                    value = str(raw_value)
                     if not value or value in (".", "..") or any(c in value for c in ("/", "\\", "?", "#", "%")):
                         raise ValueError("Invalid path parameter")
+                    if parameter.get("type") == "integer":
+                        if not re.fullmatch(r"-?[0-9]+", value):
+                            raise ValueError("Path parameter must be an integer")
+                        number = int(value)
+                        try:
+                            validate(number, parameter, key)
+                        except OverflowError:
+                            raise ValueError("Path parameter is out of range") from None
+                        if parameter.get("x-constraint", {}).get("sign") == "positive" and number <= 0:
+                            raise ValueError("Path parameter must be positive")
+                    else:
+                        validate(value, parameter, key)
                     endpoint = endpoint.replace("{" + key + "}", quote(value, safe=""))
                 else:
                     validate(container[key], parameter, key)

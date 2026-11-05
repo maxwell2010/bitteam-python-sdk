@@ -372,6 +372,7 @@ class SessionAuth:
         self.email = data.get("email")
         self._install_tokens({"result": {"access": data["access"], "refresh": data["refresh"]}})
         if validate:
+            generation = self._generation
             try:
                 await self._tracked_operation(self._transport.get_balance())
             except BitTeamAPIError as error:
@@ -379,6 +380,12 @@ class SessionAuth:
                     self._assert_owner()
                     if self._lifecycle != lifecycle and self.state != AuthState.EXPIRED:
                         self._assert_lifecycle(lifecycle)
+                    failed_generation = getattr(error, "_credential_generation", generation)
+                    if self.state == AuthState.READY and self._generation != failed_generation:
+                        # This validation used an older token pair. Preserve a
+                        # concurrent successful refresh while surfacing its
+                        # original request failure to the caller.
+                        raise
                     self.clear(expired=True)
                     await self._clear_owned_cookies()
                     return False

@@ -156,7 +156,7 @@ class KlineRecovery:
 
 
 async def recover_klines(subscription, *, start, end, chunk_bars=1000,
-                         limit=1_000_000, max_requests=10_000):
+                         limit=1_000_000, max_requests=10_000, _owner_guard=None):
     """Explicitly replace a history subscription and fetch caller-held bounds.
 
     Reconnect happens first, so the replacement buffers live publications while
@@ -174,26 +174,94 @@ async def recover_klines(subscription, *, start, end, chunk_bars=1000,
     _, start, end, _, _ = _history_windows(
         symbol, interval, start, end, chunk_bars, limit, max_requests)
     source, path = subscription.client, subscription.path
-    replacements = await source.reconnect([subscription])
-    replacement = replacements[path]
-    try:
-        candles = await fetch_klines(symbol, interval, start=start, end=end,
-                                    source=source, chunk_bars=chunk_bars,
-                                    limit=limit, max_requests=max_requests)
-        return KlineRecovery(tuple(candles), replacement, start, end)
-    except BaseException:
-        # Keep one cleanup awaitable alive even when cancellation repeats while
-        # close waits for the subscription lock or its unsubscribe ACK.
-        cleanup = asyncio.create_task(replacement.close())
-        while not cleanup.done():
+    cancelled = False
+    owner_failed = False
+    replacement = None
+    cleanup_task = None
+
+    def check_owner():
+        nonlocal owner_failed
+        try:
+            source._assert_owner_open()
+            if _owner_guard is not None:
+                _owner_guard()
+        except BaseException:
+            owner_failed = True
+            raise
+
+    def check():
+        check_owner()
+        if cancelled:
+            raise asyncio.CancelledError()
+
+    async def cleanup():
+        nonlocal cleanup_task
+        # A closed high-level owner cannot retain any late reopened source.
+        try:
+            check_owner()
+        except BaseException:
+            pass
+        if cleanup_task is None:
+            if owner_failed:
+                cleanup_task = asyncio.create_task(source.close())
+            elif replacement is not None:
+                cleanup_task = asyncio.create_task(replacement.close())
+            else:
+                return
+        while not cleanup_task.done():
             try:
-                await asyncio.shield(cleanup)
+                await asyncio.shield(cleanup_task)
             except asyncio.CancelledError:
                 continue
             except BaseException:
                 break
         try:
-            cleanup.result()
+            cleanup_task.result()
         except BaseException:
-            pass  # Preserve the initiating fetch failure/cancellation.
+            pass  # The initiating operation failure remains primary.
+
+    class GuardedSource:
+        async def get_klines(self, *args, **kwargs):
+            check()
+            rows = await source.get_klines(*args, **kwargs)
+            check()
+            return rows
+
+    async def work():
+        nonlocal replacement
+        try:
+            check()
+            replacements = await source.reconnect([subscription])
+            replacement = replacements[path]
+            check()
+            candles = await fetch_klines(symbol, interval, start=start, end=end,
+                                        source=GuardedSource(), chunk_bars=chunk_bars,
+                                        limit=limit, max_requests=max_requests)
+            check()
+            return KlineRecovery(tuple(candles), replacement, start, end)
+        except BaseException:
+            await cleanup()
+            raise
+
+    task = asyncio.create_task(work())
+    try:
+        return await asyncio.shield(task)
+    except asyncio.CancelledError:
+        # Drain even an I/O implementation which suppresses child cancellation.
+        # The shared flag prevents a late reply dispatching another stage.
+        cancelled = True
+        task.cancel()
+        while not task.done():
+            try:
+                await asyncio.shield(task)
+            except asyncio.CancelledError:
+                continue
+            except BaseException:
+                break
+        if not task.cancelled():
+            try:
+                task.result()
+            except BaseException:
+                pass
+        await cleanup()
         raise

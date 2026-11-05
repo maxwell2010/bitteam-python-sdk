@@ -59,6 +59,7 @@ class BitTeamAccountStreams(BitTeamMarketStreams):
         self._reconnect_lock = asyncio.Lock()
 
     def _require_session(self, lifecycle=None):
+        self._assert_owner_open()
         self.auth._assert_owner()
         if getattr(self.auth._transport, "_closed", False):
             raise RuntimeError("The owning BitTeam client is closed")

@@ -128,3 +128,27 @@ owner/lifecycle/state, поэтому старый challenge не пересек
 явной новой попытки; автоматического re-login/OTP нет. Контекстные менеджеры
 client/REST и owned history cleanup сохраняют первичную ошибку/отмену; ошибка
 самостоятельного close по-прежнему видима и не означает successful cleanup.
+
+## Владелец многошагового recovery
+
+History/market/account streams, выданные BitTeamClient, проверяют его liveness
+перед connect/allocation/dispatch и после await. После client.close() такой
+held stream не может открыть новое соединение. Это отдельная публичная owner-
+граница, не SessionAuth. Самостоятельный BitTeamWebSocket без владельца остаётся
+повторно подключаемым после его close; явный reconnect при открытом владельце
+также сохраняется. Cleanup никогда не блокируется owner-guard.
+
+recover_klines/reconcile_book проверяют владельца между стадиями (и между
+history chunks), сохраняют отмену caller, даже если compatible I/O подавляет
+CancelledError, и дожидаются дочерней операции. Поздний успех не возвращается,
+следующая стадия не запускается. При закрытом владельце выполняется cleanup
+всего захваченного transport, включая поздно открытое соединение; не только
+replacement ref. Drain может ждать transport deadline, немедленный выход для
+неисправного I/O, игнорирующего отмену, не обещается. Это не replay/atomicity.
+
+MarketDataRecorder использует только file-backed SQLite. ':memory:' (str/Path)
+отклоняется до I/O: новый connection на операцию не сохранял историю. Для
+in-memory свечей используйте SQLiteStorage с его отдельным lifetime-контрактом.
+Recorder держит lock до завершения SQL worker даже при отмене read/insert;
+частичный DDL connection закрывается, первичная SQL/decoder ошибка не маскируется
+вторичной close-ошибкой. Самостоятельная ошибка close остаётся видимой.

@@ -222,11 +222,18 @@ class BitTeamRestAPI:
         # Public responses share the session cookie jar too. Cancel every HTTP
         # exchange on an account boundary, including anonymous market reads.
         lifecycle = auth._lifecycle if session_mode else None
-        async def exchange(request_headers):
+        async def exchange(request_headers, request_generation):
             async def dispatch():
                 self._assert_request_auth(auth, lifecycle, epoch)
-                result = await self._send(method, self.base_url + endpoint,
-                    params=params, data=data, headers=request_headers)
+                try:
+                    result = await self._send(method, self.base_url + endpoint,
+                        params=params, data=data, headers=request_headers)
+                except BitTeamAPIError as error:
+                    if session_mode and not public:
+                        # Internal credential snapshot, never tokens or server
+                        # fields. A later refresh may already own a new pair.
+                        error._credential_generation = request_generation
+                    raise
                 self._assert_request_auth(auth, lifecycle, epoch)
                 return result
             self._assert_request_auth(auth, lifecycle, epoch)
@@ -238,7 +245,7 @@ class BitTeamRestAPI:
         async def send():
             for attempt in range(self.max_read_retries + 1):
                 try:
-                    return await exchange(headers)
+                    return await exchange(headers, generation)
                 except BitTeamAPIError as error:
                     if not safe_read or error.status not in (429, 503) or attempt == self.max_read_retries:
                         raise
@@ -256,7 +263,7 @@ class BitTeamRestAPI:
                 self._assert_request_auth(auth, lifecycle, epoch)
                 await auth.refresh(expected_generation=generation)
                 self._assert_request_auth(auth, lifecycle, epoch)
-                return await exchange(auth.headers())
+                return await exchange(auth.headers(), auth.generation)
             raise
 
     @property

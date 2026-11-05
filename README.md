@@ -117,3 +117,13 @@ Bounded backfill: `await client.recover_klines(old_subscription, start=start, en
 `scripts_sdk/live_extended.py --account-profile ...` — stateful проверка:
 resume/refresh могут сохранять или инвалидировать encrypted cache. Это не pure
 read-only account probe; во время текущего аудита такой режим не запускался.
+
+Recovery ресурсов BitTeamClient не продолжается после `client.close()`:
+held streams также не переподключаются. Standalone WebSocket сохраняет свой
+отдельный reusable close/reconnect-контракт. MarketDataRecorder требует файловый
+SQLite path; `:memory:` отклоняется и не объявляется поддержанным.
+
+Повторить фиксированный bounded offline-набор:
+`python -I -B scripts_sdk/check_bounded_verification.py --offline` (deadline60s).
+Без флага скрипт только печатает план с `max_requests=0`. Live/account/profile/
+financial режима нет; offline success не является проверкой backend-контрактов.

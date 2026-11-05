@@ -20,8 +20,8 @@ python -m pytest -c tests_sdk/pytest.ini tests_sdk -ra --junitxml=work/sdk-test-
 python scripts_sdk/check_test_skips.py work/sdk-test-results.xml
 ```
 
-Последний полный локальный результат: **1592 passed, 1 native Windows DPAPI
-skip**, 1593 collected, Linux Python 3.12.14; skip audit прошёл (bounded reconciliation follow-up 2026-11-05).
+Последний полный локальный результат: **1682 passed, 1 native Windows DPAPI
+skip**, 1683 collected, Linux Python 3.12.14; skip audit прошёл (owned recovery follow-up 2026-11-05).
 Обычный sandbox запрещает локальные sockets; для HTTPS-фикстур нужен только
 доступ исполнителя к локальным тестовым сокетам, без расширения HTTP allowlist.
 Точный финальный SHA/run/наблюдённый статус CI записываются в описании PR после
@@ -180,3 +180,27 @@ c6f64e8 CIWindowsGUI reallyran andfailedfirstCtrlV (pytest1593passed each,
 Linux4/PG/corepassed). Driver-onlyfocus/update/queuedkey +realclipboardreadback
 added, no fakepaste/prodGUIchange;Linuxactual6+full1592pass1skip/audit passed.
 ReplacementWindowsGUIstep/logs mustproveoutcome, notoldoveralljobassumptions.
+
+## Owned recovery/catalog follow-up baseline5edfd011
+
+Baseline1592+1DPAPIskip. Fixedstock publicownedstream resurrection afterclientclose;
+checks bindowned history/market/account while standaloneWS reusable. Composite
+history/book guardsbetweenstages/chunks and drainscancelimmuneIO, FULLcaptured
+transportcleanup afterownerclose. Resumeerrorgeneration tracks actualheaders,
+protectsnewerpair whilecurrentpairrejection stillclears. RecorderpartialDDL/worker/
+close precedence fixed; ':memory:' explicitreject. BundledSwaggerpathconstraints
+nowenforced preservingint/stringIDs; tradecreatedAt wholemilliseconds validation.
+Fullpre-harness1674passed1skip; crossreviews detailedinTEST_GAPS. No knownscoped
+repro deliberatelyleftopen; externalcontracts blocked asdocumented. No realcache/
+accounts/OTP/finance/live, no SDKinstall/build/version/release/merge. ExactnewCI
+and actualWindowsGUI stepresults mustbeverified in same draftPR#1.
+
+Boundedharness check_bounded_verification.py: defaultplanonlymaxrequests0;
+--offline fixed9currentregressionfiles,60sdeadline, sanitizedstatus, noserverproof.
+Actualrunpassed;8safetycasespassed. No live/profile/financialexecutionmode.
+Futurepublicplan2reads/8seach/0events notexecuted;account/auth/financial/sequence
+blockers exactinTEST_GAPS, requirefutureauthorization/primarycontracts.
+
+Finalowner/lifecyclefull1682passed1nativeDPAPIskip (1683collected),skip/sourcepass;
+core-I38exports/4optionalsabsent pass. Harnessactualoffline+8safetycases passed,
+stdout/stderrDEVNULL resourcebound. Exactnewhead/all10+actualWindowsGUIinPR#1.

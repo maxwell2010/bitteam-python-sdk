@@ -18,6 +18,7 @@ class BitTeamArchive:
             raise ValueError("Archive timeout must be between 0 and 60 seconds")
         self.auth, self.timeout, self._session = auth, timeout, None
         self._closed = False
+        self._close_task = None
 
     async def _get_session(self):
         if self._closed:
@@ -107,7 +108,14 @@ class BitTeamArchive:
         return await self._request("/tradesByUser", params=params, private=True)
 
     async def close(self):
-        if not self._closed:
+        if self._close_task is None:
             self._closed = True
-            if self._session is not None:
-                await self._session.close()
+            async def finish():
+                if self._session is not None:
+                    await self._session.close()
+            self._close_task = asyncio.create_task(finish())
+            self._close_task.add_done_callback(
+                lambda task: None if task.cancelled() else task.exception())
+        # Caller cancellation must not abandon cleanup; concurrent and later
+        # callers observe the same completion or failure.
+        await asyncio.shield(self._close_task)

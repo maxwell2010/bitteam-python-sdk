@@ -20,8 +20,8 @@ python -m pytest -c tests_sdk/pytest.ini tests_sdk -ra --junitxml=work/sdk-test-
 python scripts_sdk/check_test_skips.py work/sdk-test-results.xml
 ```
 
-Последний полный локальный результат: **1295 passed, 1 native Windows DPAPI
-skip**, 1296 collected, Linux Python 3.12.14; skip audit прошёл.
+Последний полный локальный результат: **1458 passed, 1 native Windows DPAPI
+skip**, 1459 collected, Linux Python 3.12.14; skip audit прошёл (2026-11-05).
 Обычный sandbox запрещает локальные sockets; для HTTPS-фикстур нужен только
 доступ исполнителя к локальным тестовым сокетам, без расширения HTTP allowlist.
 Точный финальный SHA/run/наблюдённый статус CI записываются в описании PR после
@@ -114,3 +114,21 @@ replacementSHA belongs in PR#1. No archives/distributions/version changes.
 Final source inventory fullsuite1388passed1DPAPIskip; skip auditpassed.
 Focused30checks also passed from copiedstandalonetree without.git, noarchives.
 See draftPR#1 for finalexactSHA and10-jobCI result; no merge/release.
+
+## Возобновлённый audit 2026-11-05
+
+Baselinef8ae6e0:1388passed1DPAPIskip+skipaudit; предыдущий10jobCI success.
+Подтверждённые RAM-only исправления: гарантированный account_check transport
+cleanup при save/step/cancel; WS SUB/UNSUB ACK lifecycle и old-ref identity;
+session cleanup при socket-close error; общий awaitable Archive.close;
+REST API-key owner epoch; очищенные transport/script/CLI diagnostics.
+Actual Tk9.0/Xorgdummy:6syntheticGUI casespassed, productionGUIbugне найден;
+Windows/RU-layout и аккаунтный2FA/logout не проверены. Xorg остановлен.
+Подробная evidence matrix в TEST_GAPS. No successfulnewBitTeamliveverification/cache/account/finance;
+freeze ZIP/wheel/sdist/SDKinstall/version/releases сохраняется. Новый exactSHA
+и полный10jobCI проверять по PR#1, не подменять прежним f8ae6e0 success.
+
+Финальный resumed full:1458passed1nativeDPAPIskip,1459collected;
+skipauditpassed.70новыхрегрессий+independentcrossreview;actualGUI6 отдельно.
+Старый failed-ACK fakefixture обновлён на явный replacement fake socket после
+retirement,51relatedpassed; никаких liveгарантий из этого не выводить.

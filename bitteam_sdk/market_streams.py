@@ -12,7 +12,7 @@ import ssl
 
 import aiohttp
 
-from .websocket import BitTeamWebSocket
+from .websocket import BitTeamWebSocket, sanitized_transport
 
 
 class MarketStreamGap(ConnectionError):
@@ -70,7 +70,7 @@ class MarketSubscription:
         if not self.closed:
             self.closed = True
             if self.client._subscriptions.get(self.path) is self:
-                await self.client.unsubscribe(self.path)
+                await self.client.unsubscribe(self.path, _expected=self)
 
 
 def pair_identity(value):
@@ -102,7 +102,9 @@ class BitTeamMarketStreams(BitTeamWebSocket):
         """Extension hook for separately reviewed session-backed subclasses."""
         return {"type": "hello", "version": "2", "auth": {"headers": {"Authorization": "jwt"}}}
 
+    @sanitized_transport
     async def connect(self):
+        await self._await_subscription_cleanup()
         async with self._connect_lock:
             if self.ws is not None and not self.ws.closed:
                 return
@@ -144,7 +146,7 @@ class BitTeamMarketStreams(BitTeamWebSocket):
         try:
             await self._rpc({"type": "sub", "path": path})
         except BaseException:
-            self._subscriptions.pop(path, None)
+            await self._retire_uncertain_subscription()
             subscription.closed = True
             raise
         return subscription

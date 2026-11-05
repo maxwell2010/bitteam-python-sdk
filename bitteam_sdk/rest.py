@@ -53,6 +53,9 @@ class BitTeamRestAPI:
                     self._retired_sessions = []
                 self._retired_sessions.append(session)
                 self._session = None
+        # Every strategy replacement retires issued work, including API-key
+        # A -> B -> A where identity matches again and no session lifecycle exists.
+        self._auth_epoch = getattr(self, "_auth_epoch", 0) + 1
         self._auth = value
 
     @auth.deleter
@@ -149,10 +152,19 @@ class BitTeamRestAPI:
         self._session.cookie_jar.update_cookies(cookies, response_url=URL(self.base_url))
 
     async def _send(self, method, url, *, params=None, data=None, headers=None):
+        try:
+            return await self._send_request(method, url, params=params, data=data, headers=headers)
+        except asyncio.TimeoutError:
+            raise asyncio.TimeoutError("BitTeam request timed out; operation was not retried") from None
+        except aiohttp.ClientError:
+            raise BitTeamAPIError(0) from None
+
+    async def _send_request(self, method, url, *, params=None, data=None, headers=None):
         auth = self.auth
+        epoch = self._auth_epoch
         lifecycle = auth._lifecycle if isinstance(auth, SessionAuth) else None
         def assert_current():
-            self._assert_request_auth(auth, lifecycle)
+            self._assert_request_auth(auth, lifecycle, epoch)
         target = URL(url)
         if target.origin() not in self._allowed_origins or target.user is not None:
             raise ValueError("Request origin is not configured for this client")
@@ -191,10 +203,10 @@ class BitTeamRestAPI:
     def _get_auth_header(self):
         return self.auth.headers()
 
-    def _assert_request_auth(self, auth, lifecycle):
+    def _assert_request_auth(self, auth, lifecycle, epoch):
         if self._closed:
             raise RuntimeError("Client is closed")
-        if self.auth is not auth:
+        if self.auth is not auth or self._auth_epoch != epoch:
             raise asyncio.CancelledError("Authentication operation was invalidated")
         if isinstance(auth, SessionAuth):
             auth._assert_lifecycle(lifecycle)
@@ -203,6 +215,7 @@ class BitTeamRestAPI:
         if not endpoint.startswith("/") or endpoint.startswith("//"):
             raise ValueError("Expected a relative API endpoint")
         auth = self.auth
+        epoch = self._auth_epoch
         session_mode = isinstance(auth, SessionAuth)
         generation = auth.generation if session_mode else None
         headers = {} if public else auth.headers()
@@ -211,12 +224,12 @@ class BitTeamRestAPI:
         lifecycle = auth._lifecycle if session_mode else None
         async def exchange(request_headers):
             async def dispatch():
-                self._assert_request_auth(auth, lifecycle)
+                self._assert_request_auth(auth, lifecycle, epoch)
                 result = await self._send(method, self.base_url + endpoint,
                     params=params, data=data, headers=request_headers)
-                self._assert_request_auth(auth, lifecycle)
+                self._assert_request_auth(auth, lifecycle, epoch)
                 return result
-            self._assert_request_auth(auth, lifecycle)
+            self._assert_request_auth(auth, lifecycle, epoch)
             if session_mode:
                 return await auth._tracked_operation(dispatch())
             return await dispatch()
@@ -240,9 +253,9 @@ class BitTeamRestAPI:
             # mutations, network timeouts, or arbitrary 401/403 failures.
             if (not public and session_mode and safe_read
                     and exc.code == 401000 and exc.status in (200, 401)):
-                self._assert_request_auth(auth, lifecycle)
+                self._assert_request_auth(auth, lifecycle, epoch)
                 await auth.refresh(expected_generation=generation)
-                self._assert_request_auth(auth, lifecycle)
+                self._assert_request_auth(auth, lifecycle, epoch)
                 return await exchange(auth.headers())
             raise
 

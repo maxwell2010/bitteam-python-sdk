@@ -39,7 +39,11 @@ async def main():
                 if isinstance(value, dict):
                     entry['keys'] = list(value)[:15]
             except BitTeamAPIError as error:
-                entry.update(ok=False, http_status=error.status, code=error.code)
+                # Server error codes may be arbitrary strings containing private
+                # data. Export only plain numeric diagnostic metadata.
+                entry.update(ok=False,
+                             http_status=error.status if type(error.status) is int else None,
+                             code=error.code if type(error.code) is int else None)
             except Exception as error:
                 entry.update(ok=False, error_type=type(error).__name__)
             report['rest'].append(entry)

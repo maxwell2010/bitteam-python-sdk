@@ -1,6 +1,6 @@
 # Test gaps: site, P2P, archive and CI
 
-Audit date: 2026-11-04. This is a scoped evidence matrix, not a claim of complete API coverage. No build/version bump or account requests were performed during this audit.
+Latest audit date: 2026-11-05 (historical evidence below retains its dates). This is a scoped evidence matrix, not a claim of complete API coverage. No build/version bump or account requests were performed during this audit.
 
 ## Evidence and status definitions
 
@@ -643,3 +643,45 @@ checkout), including planner CLI and isolated documentation CLI. Manifest
 case-insensitive exclusions match the planner for tested synthetic secret,
 session/cache/build variants. The final inventory changes are independently
 reviewed. Exact-SHA CI remains a separate result in PR#1.
+
+## Resumed cancellation, resources and diagnostics audit (2026-11-05)
+
+Pinned baseline f8ae6e0:1388 passed,1 native DPAPI skip; skip audit passed.
+Its successful10-job CI predates the following independently reproduced fixes.
+All account/auth/transport tests use synthetic RAM objects; no user cache,
+credentials, account request, code delivery or financial operation is involved.
+
+| Area | Reproduced boundary and correction | Evidence/limits |
+| --- | --- | --- |
+| Account-check cleanup | Initial save, cleanup/cache step and final diagnostics failures could bypass transport close or mask cancellation. Nested cleanup now closes independently of report writes and preserves primary errors/cancellation; an interrupted check cannot report passed. | RAM-only failing save/step/cache/logout/close paths; ordinary failed-check False behavior retained when diagnostics work. Not a real account run. |
+| WebSocket subscriptions | Same-path subscribe could ACK before a late UNSUB; accepted SUB cancellation/timeout left an unowned live server subscription. Lifecycle lock spans ACK; uncertain SUB/UNSUB retires connection and invalidates other refs. Old close rechecks subscription identity inside lock. | Production RPC with in-memory fake server and deterministic barriers, history+market; cancellation/timeout/second cancellation/close failure. No live server guarantee or replay inferred. |
+| WebSocket resource close | Socket-close failure/cancellation skipped reader/session cleanup. Remaining resources now close before the original failure is raised. A retiring socket cannot be reused while its protected cleanup is pending. | Fake sessions/readers, including a failing close. A failure is not reported as successful shutdown. |
+| Archive shutdown | Cancelled/concurrent close callers could return while the session remained open; a failed close became later apparent success. One shielded cleanup task remains awaitable and retains its failure. | Fake transport only; no claim of a newly successful public archive call. |
+| REST owner epoch | API-key A -> B -> A could accept old private JSON because identity matched again. Transport epoch now invalidates prior-era queued dispatch and replies for all auth strategies. | Real REST _request/_send with fake limiter/response, GET/POST, direct and roundtrip replacement; same strategy assignment remains valid. Existing same-session refresh tests retained. |
+| Diagnostic redaction | Arbitrary string error.code entered the anonymous report; driver setup/cleanup and session CLI failures escaped via raw tracebacks; REST and history/market WS client errors/timeouts exposed raw messages. | Synthetic sentinel strings, no live report written. Exported HTTP status/code restricted to plain integers; CLI exits remain nonzero, cleanup is exercised; transport errors do not trigger retries; WS connect/send/close sentinel regressions cover both classes. |
+| Local input GUI | No production GUI defect reproduced. Actual Tk9.0 on isolated Xorg1.21.1.16 dummy display passed6 synthetic scenarios: paste/selection/CtrlV/ShiftInsert, show/hide, count/clear, masked TOTP/device inputs, Return/cancel and empty clipboard. | HTTP client creation forbidden, no account flow invoked. Standalone check_window_prompt_runtime.py requires a disposable display; no added pytest skip. Not native Codex UI, Windows/RU-layout, real2FA or logout delivery verification. Own Xorg stopped. |
+
+The fake transport/script failures prove diagnostic boundary bypasses, not that
+real secrets were actually leaked. Known frontend/static facts and historical
+public-live results retain their earlier provenance; this resumed audit claims no new successful BitTeam live verification. Public-facade observations without an established
+contract (for example None symbols or boolean limits) are not labelled defects.
+Account expiry/renewal/revocation/delivery, financial outcomes/finality, ID links,
+archive availability and live reconnect/replay remain external/unverified.
+
+Version/install/distribution freeze continues: no SDK install, ZIP/wheel/sdist,
+version/tag/release/publication or merge. Final full-suite/skip/CI results for the
+replacement head are recorded below/in draft PR#1 independently of this baseline.
+
+Full-suite integration initially found one outdated fake ACK fixture: it had no
+replacement-session transport after uncertain-ACK retirement and could fall
+through to connection establishment. It now supplies an explicit fake replacement
+socket/hello and asserts the old socket is closed and exactly two user SUBs
+occur;51 related cases passed. No service availability or live result is inferred
+from that failed fixture. Account/financial operations were never involved.
+
+Final resumed full suite: **1458 passed,1 native Windows DPAPI skip**,
+1459 collected, Linux Python3.12.14; skip audit passed.70 new meaningful
+regressions cover the reproduced boundaries; count is not an all-bugs claim.
+Independent cross-reviews passed for cleanup, WS, REST/archive and diagnostics.
+Actual GUI6checks remain a separate runtime result, not mocked/default pytest
+or Windows proof. No new skips; final exact-SHA10-job CI is recorded in PR#1.

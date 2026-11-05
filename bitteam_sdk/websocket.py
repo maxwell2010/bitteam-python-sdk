@@ -9,6 +9,7 @@ import ssl
 import time
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
+from functools import wraps
 from urllib.parse import urlencode
 
 import aiohttp
@@ -17,6 +18,19 @@ from yarl import URL
 from .auth import BitTeamAPIError
 from .models import Kline
 from .services import symbol_name
+
+
+def sanitized_transport(operation):
+    """Keep untrusted transport diagnostics out of public exception messages."""
+    @wraps(operation)
+    async def wrapped(*args, **kwargs):
+        try:
+            return await operation(*args, **kwargs)
+        except asyncio.TimeoutError:
+            raise asyncio.TimeoutError("WebSocket operation timed out; operation was not retried") from None
+        except aiohttp.ClientError:
+            raise ConnectionError("WebSocket transport failed; operation was not retried") from None
+    return wrapped
 
 
 RESOLUTIONS = {"1m": "1", "5m": "5", "15m": "15", "1h": "60", "1d": "1D"}
@@ -82,7 +96,7 @@ class KlineSubscription:
         if not self.closed:
             self.closed = True
             if self.client._subscriptions.get(self.path) is self:
-                await self.client.unsubscribe(self.path)
+                await self.client.unsubscribe(self.path, _expected=self)
 
 
 class BitTeamWebSocket:
@@ -104,8 +118,11 @@ class BitTeamWebSocket:
         self._pending = {}
         self._subscriptions = {}
         self._sequence = 0
+        self._subscription_cleanup = None
 
+    @sanitized_transport
     async def connect(self):
+        await self._await_subscription_cleanup()
         async with self._connect_lock:
             if self.ws is not None and not self.ws.closed:
                 return
@@ -147,8 +164,11 @@ class BitTeamWebSocket:
     def _validate_rpc(self):
         """Hook for private streams to check the owner at dispatch boundaries."""
 
+    @sanitized_transport
     async def _rpc(self, payload):
         self._validate_rpc()
+        if self._subscription_cleanup is not None and not self._subscription_cleanup.done():
+            raise ConnectionError("Subscription state is uncertain; connection is retiring")
         if self.ws is None or self.ws.closed:
             raise ConnectionError("History WebSocket is disconnected")
         self._sequence += 1
@@ -292,19 +312,59 @@ class BitTeamWebSocket:
         try:
             await self._rpc({"type": "sub", "path": path})
         except BaseException:
-            self._subscriptions.pop(path, None)
+            await self._retire_uncertain_subscription()
             raise
         return subscription
 
-    async def unsubscribe(self, path):
+    async def _await_subscription_cleanup(self):
+        task = self._subscription_cleanup
+        if task is not None:
+            await asyncio.shield(task)
+
+    async def _retire_uncertain_subscription(self):
+        """A missing ACK cannot establish the server's subscription state."""
+        self._notify_error(ConnectionError("Subscription acknowledgement lost; resynchronize stream"))
+        self._subscriptions.clear()
+
+        async def cleanup():
+            async with self._connect_lock:
+                try:
+                    await self._close()
+                except BaseException:
+                    # Even a failed transport close must not allow socket reuse.
+                    self.ws = None
+                    raise
+
+        task = asyncio.create_task(cleanup())
+        self._subscription_cleanup = task
+        # Retrieve failures even if another cancellation interrupts this waiter.
+        task.add_done_callback(lambda done: None if done.cancelled() else done.exception())
+        try:
+            await asyncio.shield(task)
+        except BaseException:
+            # Preserve the initiating RPC error/cancellation, not a close error.
+            pass
+
+    async def unsubscribe(self, path, *, _expected=None):
+        async with self._subscription_lock:
+            if _expected is not None and self._subscriptions.get(path) is not _expected:
+                return
+            await self._unsubscribe_unlocked(path)
+
+    async def _unsubscribe_unlocked(self, path):
         sub = self._subscriptions.pop(path, None)
         if sub is not None:
             while not sub.queue.empty():
                 sub.queue.get_nowait()
             sub.queue.put_nowait(None)
             if self.ws is not None and not self.ws.closed:
-                await self._rpc({"type": "unsub", "path": path})
+                try:
+                    await self._rpc({"type": "unsub", "path": path})
+                except BaseException:
+                    await self._retire_uncertain_subscription()
+                    raise
 
+    @sanitized_transport
     async def close(self):
         async with self._connect_lock:
             await self._close()
@@ -313,18 +373,31 @@ class BitTeamWebSocket:
         for future in list(self._pending.values()):
             if not future.done():
                 future.set_exception(ConnectionError("WebSocket is closed"))
-        if self.ws is not None:
-            await self.ws.close()
-        if self._reader_task is not None and self._reader_task is not asyncio.current_task():
-            self._reader_task.cancel()
-            await asyncio.gather(self._reader_task, return_exceptions=True)
-        if self._session is not None:
-            await self._session.close()
-        for sub in self._subscriptions.values():
-            while not sub.queue.empty():
-                sub.queue.get_nowait()
-            sub.queue.put_nowait(getattr(sub, "_terminal_error", None))
-        self._subscriptions.clear()
+        failure = None
+        try:
+            if self.ws is not None:
+                await self.ws.close()
+        except BaseException as error:
+            failure = error
+        try:
+            await self._stop_reader()
+        except BaseException as error:
+            if failure is None:
+                failure = error
+        try:
+            if self._session is not None:
+                await self._session.close()
+        except BaseException as error:
+            if failure is None:
+                failure = error
+        finally:
+            for sub in self._subscriptions.values():
+                while not sub.queue.empty():
+                    sub.queue.get_nowait()
+                sub.queue.put_nowait(getattr(sub, "_terminal_error", None))
+            self._subscriptions.clear()
+        if failure is not None:
+            raise failure
 
     async def __aenter__(self):
         await self.connect()

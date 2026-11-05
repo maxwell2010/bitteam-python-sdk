@@ -57,13 +57,19 @@ async def test_history_old_reference_cannot_close_a_replacement_subscription():
 
 
 @pytest.mark.asyncio
-async def test_concurrent_history_subscriber_waits_for_ack_and_retries_failed_ack():
+async def test_concurrent_history_subscriber_waits_for_ack_then_uses_fresh_connection():
     client = connected()
     entered, release = asyncio.Event(), asyncio.Event()
     calls = 0
+    old_socket = client.ws
+    replacement_socket = Socket()
+    connect = AsyncMock(return_value=replacement_socket)
+    client._session = SimpleNamespace(closed=False, ws_connect=connect, close=AsyncMock())
 
     async def rpc(frame):
         nonlocal calls
+        if frame["type"] != "sub":
+            return {}  # The replacement connection performs its own hello.
         calls += 1
         if calls == 1:
             entered.set()
@@ -82,6 +88,9 @@ async def test_concurrent_history_subscriber_waits_for_ack_and_retries_failed_ac
     assert isinstance(results[0], ConnectionError)
     assert client._subscriptions[results[1].path] is results[1]
     assert calls == 2
+    assert old_socket.closed
+    assert client.ws is replacement_socket
+    connect.assert_awaited_once()
     await client.close()
 
 

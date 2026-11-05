@@ -387,7 +387,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--postgres-dsn", required=True, help="Explicit synthetic loopback PostgreSQL service only")
     args = parser.parse_args()
-    asyncio.run(run(args.postgres_dsn))
+    try:
+        asyncio.run(run(args.postgres_dsn))
+    except Exception:
+        # Setup and cleanup failures occur outside the individual checks too.
+        # Never let driver messages/DSNs escape through a CLI traceback.
+        print("PostgreSQL runtime checks failed during setup or cleanup.", file=sys.stderr)
+        raise SystemExit(1) from None
 
 
 if __name__ == "__main__":

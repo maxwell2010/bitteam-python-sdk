@@ -4,7 +4,7 @@
 
 **Подготовка GitHub-релиза 1.7.0 разрешена пользователем 2026-11-05.** Проверки SDK не доказывают все backend-контракты; факт публикации сверяйте на [странице Releases](https://github.com/maxwell2010/bitteam-python-sdk/releases).
 
-**Статус: релиз ещё не опубликован.** Подготовка 1.7.0 и package/install checks разрешены; merge/tag/release upload приостановлены из-за policy-denial GitHub Release API.
+**Разрешение публикации:** 2026-11-05 прежняя остановка из-за policy-denial GitHub Release API снята после штатного применения ограниченной сетевой политики (`api.github.com`, `uploads.github.com`), публичного GET с HTTP 200 и нового явного разрешения пользователя. Merge/tag/GitHub Release разрешены после свежих проверок точного head и main; это разрешение само по себе не доказывает публикацию. Актуальный результат и assets см. на [странице релиза v1.7.0](https://github.com/maxwell2010/bitteam-python-sdk/releases/tag/v1.7.0).
 
 Лицензия не задана (license unspecified); разрешение на public release не является выдачей лицензии. [Изменения 1.7.0](CHANGELOG.md).
 

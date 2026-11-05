@@ -2,14 +2,15 @@
 
 User requirements:
 - Continue implementation and fix reproducible errors; distinguish offline contracts from actual live verification.
-- Freeze version metadata. Do not create releases, tags or distribution artifacts until the user explicitly authorizes ending the verification freeze.
+- Release authorization (2026-11-05) supersedes the earlier verification freeze: version/changelog changes, isolated wheel/sdist/source builds and install checks, PR #1 merge after checks, tag and GitHub release with reviewed public assets are authorized. No PyPI publishing or Telegram sending. Never bypass network/approval/security denials.
+- Publish only after concrete blockers are resolved, exact-head PR checks and main checks pass, artifacts/installs are inspected and notes preserve external limitations. Do not invent a license; currently unspecified.
 - Public repository: never commit credentials, cookies, session caches, account responses, databases, logs or legacy service config files.
 - Never perform real trades, withdrawals, financial confirmations, send verification codes, or change account settings during tests. Synthetic tests are authorized.
 - Real account sessions were removed locally at the user's request. Never reconstruct or upload them.
 - Use Russian for user-facing progress; use short hyphens.
 
 Validation:
-python -m pip install ".[dev]"
+python -m pip install -r requirements-sdk-dev.txt
 python -m pytest -c tests_sdk/pytest.ini tests_sdk -ra --junitxml=sdk-test-results.xml
 python scripts_sdk/check_test_skips.py sdk-test-results.xml
 

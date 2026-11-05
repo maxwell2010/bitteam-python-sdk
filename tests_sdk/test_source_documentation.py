@@ -37,6 +37,7 @@ def standalone_source_fixture(tmp_path):
     public = {
         "README.md": "# Synthetic\n[guide](docs/Guide.md)\n",
         "AGENTS.md": "# Synthetic instructions\n",
+        "CHANGELOG.md": "# Synthetic changelog\n",
         "MANIFEST.in": "include README.md\n",
         "pyproject.toml": '[project]\nreadme="README.md"\n',
         "requirements-sdk.txt": "# Synthetic\n",

@@ -1,3 +1,10 @@
+> Current release authorization (2026-11-05): the user explicitly lifted the
+> earlier version/build/install/tag/release freeze for reviewed GitHub release
+> preparation, and authorized PR #1 merge after checks. PyPI/Telegram sending,
+> real account/cache/secret/OTP/financial operations and security bypass remain
+> prohibited. Earlier freeze statements below are dated historical audit facts,
+> not the current authorization. External-contract limitations remain in force.
+
 # Продолжение проверки BitTeam SDK в Cloud
 
 Repository: https://github.com/maxwell2010/bitteam-python-sdk

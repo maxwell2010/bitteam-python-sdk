@@ -1,3 +1,10 @@
+> Current release authorization (2026-11-05): the user explicitly lifted the
+> earlier version/build/install/tag/release freeze for reviewed GitHub release
+> preparation, and authorized PR #1 merge after checks. PyPI/Telegram sending,
+> real account/cache/secret/OTP/financial operations and security bypass remain
+> prohibited. Earlier freeze statements below are dated historical audit facts,
+> not the current authorization. External-contract limitations remain in force.
+
 # Test gaps: site, P2P, archive and CI
 
 Latest audit date: 2026-11-05 (historical evidence below retains its dates). This is a scoped evidence matrix, not a claim of complete API coverage. No build/version bump or account requests were performed during this audit.

@@ -10,7 +10,7 @@ from pathlib import Path, PurePosixPath
 import subprocess
 
 ROOT_FILES = frozenset({
-    "README.md", "AGENTS.md", "MANIFEST.in", "pyproject.toml", ".gitignore",
+    "README.md", "CHANGELOG.md", "AGENTS.md", "MANIFEST.in", "pyproject.toml", ".gitignore",
     "requirements-sdk.txt", "requirements-sdk-dev.txt", ".github/workflows/sdk.yml",
 })
 REQUIRED_FILES = ROOT_FILES - {".gitignore"}

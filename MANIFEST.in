@@ -1,4 +1,4 @@
-include README.md AGENTS.md MANIFEST.in .gitignore
+include README.md CHANGELOG.md AGENTS.md MANIFEST.in .gitignore
 include pyproject.toml requirements-sdk.txt requirements-sdk-dev.txt
 recursive-include bitteam_sdk *.py *.md
 include bitteam_sdk/requirements.txt bitteam_sdk/structure.txt

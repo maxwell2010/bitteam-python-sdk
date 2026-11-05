@@ -4,11 +4,17 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bitteam-python-sdk"
-version = "1.6.0"
+version = "1.7.0"
 description = "Async BitTeam SDK with API keys, session auth, full REST catalog and market history"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["aiohttp>=3.12,<4", "certifi>=2024.7.4"]
+
+[project.urls]
+Homepage = "https://github.com/maxwell2010/bitteam-python-sdk"
+Repository = "https://github.com/maxwell2010/bitteam-python-sdk"
+Issues = "https://github.com/maxwell2010/bitteam-python-sdk/issues"
+Documentation = "https://github.com/maxwell2010/bitteam-python-sdk/blob/main/README.md"
 
 [project.optional-dependencies]
 charts = ["pandas>=2", "plotly>=5"]

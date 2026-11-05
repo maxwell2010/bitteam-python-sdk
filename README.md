@@ -1,8 +1,10 @@
-# BitTeam Python SDK - development
+# BitTeam Python SDK 1.7.0
 
 Асинхронный Python SDK BitTeam: API-ключи и пользовательский вход, 2FA, cookies, refresh, REST, WebSocket, исторические свечи, стаканы, P2P и отслеживание заявок вывода.
 
-**Проверка продолжается. Выпуск новых версий и сборок заморожен по запросу пользователя.** Публикация исходников не является релизом.
+**Подготовка GitHub-релиза 1.7.0 разрешена пользователем 2026-11-05.** Проверки SDK не доказывают все backend-контракты; факт публикации сверяйте на [странице Releases](https://github.com/maxwell2010/bitteam-python-sdk/releases).
+
+Лицензия не задана (license unspecified); разрешение на public release не является выдачей лицензии. [Изменения 1.7.0](CHANGELOG.md).
 
 - [Каталог REST API](bitteam_sdk/API_REFERENCE.md)
 - [Матрица проверок и открытые вопросы](docs/TEST_GAPS.md)

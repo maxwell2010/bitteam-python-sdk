@@ -153,7 +153,19 @@ class SessionAuth:
         self._pending_requests.add(task)
         try:
             try:
-                result = await task
+                result = await asyncio.shield(task)
+            except asyncio.CancelledError:
+                # Observe caller cancellation even when the transport suppresses
+                # cancellation. Keep the child tracked until it actually exits.
+                task.cancel()
+                drain = asyncio.gather(task, return_exceptions=True)
+                while not drain.done():
+                    try:
+                        await asyncio.shield(drain)
+                    except asyncio.CancelledError:
+                        continue
+                self._assert_owner()
+                raise
             except BaseException:
                 self._assert_owner()
                 raise
@@ -182,19 +194,21 @@ class SessionAuth:
         return data
 
     def _transition(self, data, *, after_totp=False):
-        if data.get("uid"):
-            self._uid = data["uid"]
         if "email_confirm" in data and not data["email_confirm"]:
-            self.state = AuthState.EMAIL_CONFIRMATION_REQUIRED
+            state = AuthState.EMAIL_CONFIRMATION_REQUIRED
         elif data.get("double_auth_google") and not after_totp:
-            self.state = AuthState.TWO_FACTOR_REQUIRED
+            state = AuthState.TWO_FACTOR_REQUIRED
         elif data.get("is_authorize") is False or data.get("is_authorize") == 0:
-            self.state = AuthState.DEVICE_CONFIRMATION_REQUIRED
+            state = AuthState.DEVICE_CONFIRMATION_REQUIRED
         elif data.get("is_authorize") is True or data.get("is_authorize") == 1:
-            self.state = AuthState.GENERAL_SESSION_READY
+            state = AuthState.GENERAL_SESSION_READY
         else:
             # Missing authorization fields are not evidence of a successful login.
             raise AuthenticationError(502)
+        # Invalid responses must not replace the challenge used by a retry.
+        if data.get("uid"):
+            self._uid = data["uid"]
+        self.state = state
         return LoginResult(self.state, self._delivery_channel, self._lifecycle)
 
     async def login(self, email: str, password: str):
@@ -248,6 +262,12 @@ class SessionAuth:
         data = response.get("data")
         if not data or (isinstance(data, dict) and (data.get("ok") is False or data.get("is_authorize") is False)):
             raise AuthenticationError(401)
+        if isinstance(data, dict) and "is_authorize" in data:
+            authorized = data["is_authorize"]
+            # Match the existing boolean/numeric 0/1 transition contract;
+            # a present unknown flag is not confirmation of authorization.
+            if not (authorized is True or (type(authorized) is int and authorized == 1)):
+                raise AuthenticationError(401)
         self.state = AuthState.GENERAL_SESSION_READY
         return LoginResult(self.state, self._delivery_channel, self._lifecycle)
 

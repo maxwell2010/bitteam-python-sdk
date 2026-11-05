@@ -129,7 +129,7 @@ class BitTeamMarketStreams(BitTeamWebSocket):
                 self._reader_task = asyncio.create_task(self._reader())
                 await self._rpc(hello)
             except BaseException:
-                await self._close()
+                await self._close_after_failure(locked=True)
                 raise
 
     async def _subscribe(self, path, channel):
@@ -200,7 +200,7 @@ class BitTeamMarketStreams(BitTeamWebSocket):
             except BaseException:
                 for subscription in restored.values():
                     self._retire(subscription)
-                await self.close()
+                await self._close_after_failure()
                 raise
 
     async def subscribe_tickers(self):

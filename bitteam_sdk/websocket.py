@@ -7,7 +7,7 @@ import asyncio
 import json
 import ssl
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal, InvalidOperation
 from functools import wraps
 from urllib.parse import urlencode
@@ -63,6 +63,10 @@ def candle(symbol, interval, data):
         raise BitTeamAPIError(502) from None
 
 
+class KlineStreamGap(ConnectionError):
+    """History subscription was replaced; reconcile candles through history reads."""
+
+
 @dataclass
 class KlineSubscription:
     client: object
@@ -71,6 +75,7 @@ class KlineSubscription:
     interval: str
     queue: asyncio.Queue
     closed: bool = False
+    _terminal_error: object = field(default=None, repr=False)
 
     def __aiter__(self):
         return self
@@ -142,13 +147,13 @@ class BitTeamWebSocket:
                                              timeout=aiohttp.ClientWSTimeout(ws_close=5)),
                     self.timeout)
             except BaseException:
-                await self._session.close()
+                await self._close_after_failure(locked=True)
                 raise
             self._reader_task = asyncio.create_task(self._reader())
             try:
                 await self._rpc({"type": "hello", "version": "2", "auth": {"headers": {"Authorization": "jwt"}}})
             except BaseException:
-                await self._close()
+                await self._close_after_failure(locked=True)
                 raise
 
     async def _stop_reader(self):
@@ -305,8 +310,9 @@ class BitTeamWebSocket:
         await self.connect()
         name = symbol_name(symbol)
         path = "/klines/" + name + "/" + STREAM_RESOLUTIONS[interval]
-        if path in self._subscriptions:
-            return self._subscriptions[path]
+        existing = self._subscriptions.get(path)
+        if existing is not None and not existing.closed:
+            return existing
         subscription = KlineSubscription(self, path, name, interval, asyncio.Queue(self.queue_size))
         self._subscriptions[path] = subscription
         try:
@@ -315,6 +321,61 @@ class BitTeamWebSocket:
             await self._retire_uncertain_subscription()
             raise
         return subscription
+
+    @staticmethod
+    def _retire(subscription):
+        while not subscription.queue.empty():
+            subscription.queue.get_nowait()
+        subscription._terminal_error = KlineStreamGap(
+            "History stream replaced; candles may be missing, reconcile history")
+        subscription.queue.put_nowait(subscription._terminal_error)
+
+    async def reconnect(self, subscriptions):
+        """Return explicit replacement candle subscriptions keyed by path.
+
+        Old iterators signal a gap. No replay or missed-candle recovery is
+        promised; reconcile through get_klines using application-held bounds.
+        Failure/cancellation closes the partial batch and returns no replacements.
+        """
+        requested = {}
+        for subscription in subscriptions:
+            if not isinstance(subscription, KlineSubscription) or subscription.client is not self:
+                raise ValueError("Expected history subscriptions belonging to this connection")
+            if subscription.interval not in STREAM_RESOLUTIONS:
+                raise ValueError("Expected a supported history candle interval")
+            name = symbol_name(subscription.symbol)
+            path = "/klines/" + name + "/" + STREAM_RESOLUTIONS[subscription.interval]
+            if subscription.symbol != name or subscription.path != path:
+                raise ValueError("Expected an unchanged history subscription path")
+            requested[path] = subscription
+        async with self._subscription_lock:
+            old = {id(sub): sub for sub in self._subscriptions.values()}
+            old.update({id(sub): sub for sub in requested.values()})
+            for subscription in old.values():
+                self._retire(subscription)
+            await self.close()
+            restored = {}
+            try:
+                await self.connect()
+                for path, subscription in requested.items():
+                    restored[path] = await self._subscribe_kline(subscription.symbol, subscription.interval)
+                return restored
+            except BaseException:
+                for subscription in restored.values():
+                    self._retire(subscription)
+                await self._close_after_failure()
+                raise
+
+    async def _close_after_failure(self, *, locked=False):
+        """Finish cleanup without replacing an already active primary failure."""
+        try:
+            if locked:
+                await self._close()
+            else:
+                await self.close()
+        except BaseException:
+            # A failed shutdown must not let the next connect reuse this socket.
+            self.ws = None
 
     async def _await_subscription_cleanup(self):
         task = self._subscription_cleanup

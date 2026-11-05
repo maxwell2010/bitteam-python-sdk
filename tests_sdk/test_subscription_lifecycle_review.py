@@ -241,5 +241,8 @@ async def test_typed_transport_errors_never_expose_server_diagnostics(kind, stag
     assert sentinel not in repr(raised.value)
     assert raised.value.__suppress_context__
     assert raised.value.__cause__ is None
+    import traceback
+    formatted = ''.join(traceback.format_exception(type(raised.value), raised.value, raised.value.__traceback__))
+    assert sentinel not in formatted
     if stage == 'connect':
         client._session.close.assert_awaited_once()

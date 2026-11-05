@@ -20,8 +20,8 @@ python -m pytest -c tests_sdk/pytest.ini tests_sdk -ra --junitxml=work/sdk-test-
 python scripts_sdk/check_test_skips.py work/sdk-test-results.xml
 ```
 
-Последний полный локальный результат: **1458 passed, 1 native Windows DPAPI
-skip**, 1459 collected, Linux Python 3.12.14; skip audit прошёл (2026-11-05).
+Последний полный локальный результат: **1524 passed, 1 native Windows DPAPI
+skip**, 1525 collected, Linux Python 3.12.14; skip audit прошёл (auth/recovery follow-up 2026-11-05).
 Обычный sandbox запрещает локальные sockets; для HTTPS-фикстур нужен только
 доступ исполнителя к локальным тестовым сокетам, без расширения HTTP allowlist.
 Точный финальный SHA/run/наблюдённый статус CI записываются в описании PR после
@@ -137,3 +137,22 @@ CI9822c15 matrix found fake script tests imported asyncpg before mocking;
 actualPG12/corepassed. Teststubs now installedbeforeimport, no optionaldependency
 added. Finalfull1458pass1skip with asyncpg explicitlyblocked+skipauditpassed;
 independentreview14focusedpassed. ReplacementexactSHA/10jobs inPR#1.
+
+## Authorization/recovery follow-up baseline772ee11
+
+Guardedbaseline1458passed1DPAPIskip+skipaudit. Confirmedfixes: device numeric0
+failclosed; atomicUID transition; retainedparentcancel when authchild ignores
+cancel; closedhistoryref race; primaryerror preservation during hello/reconnect
+cleanup; terminalaccountiterator no hiddenconnect. Newexplicit history.reconnect
+returns pathmap andKlineStreamGap, no replay/boundsfetch/sequence promise.
+Private secondSUBcancel/cleanup/originalrefsretry and generationreauthordering
+passed as existingbehavior, notnewbackendcontracts. Defaultpytest nowruntime
+Python DNS/TCP/UDP loopback-only guard+teardown detection; collection/nativeI/O/
+subprocess limits explicit. Detailedmatrix TEST_GAPS and RELIABILITY.
+No usercache/BitTeamlive/accounts/finance/OTP/build/install/version/release.
+Finalfull/skip/newexactSHA10jobs must be checked separately in same draftPR#1.
+
+Finalauth/recoveryfull1524passed1nativeDPAPIskip (1525collected),skipaudit and
+sourcechecks passed. Permanentruntimeguard active throughout pytest,66newcases
+plusindependentcrossreviews. Core-onlysource-I smoke34exports/4optionalsabsent
+passed;no installedSDK/wheel. NewexactSHA10jobs inPR#1, don'treuse oldheadCI.

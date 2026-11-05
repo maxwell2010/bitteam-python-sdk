@@ -694,3 +694,41 @@ restoring original modules after each case. Independent14focused cases and the
 FULL1458pass1DPAPIskip suite passed with asyncpg explicitly unavailable via
 sys.modules import blocking; skip audit passed. No dependency/skip was added.
 Exact replacement SHA/run belongs in PR#1;9822c15 matrix failure is not success.
+
+## Authorization and explicit recovery follow-up after 772ee11 (2026-11-05)
+
+Baseline1458passed1nativeDPAPIskip+skipaudit passed with an in-process guard
+rejecting external DNS/TCP before I/O. All new auth/stream reproduction uses
+real SDK orchestration with RAM fake transports or existing local HTTPS.
+No BitTeam live tests, user cache/secrets, actual OTP delivery/account/financial
+requests, SDK install/distributions, versions/tags/releases or merge.
+
+| Boundary | Actual result | Guarantee/remaining limit |
+| --- | --- | --- |
+| confirm_device numeric0 | Reproduced local inconsistency:0 accepted and facade opened fake spot; now rejected with DEVICE_REQUIRED unchanged, zero spot dispatch. true/int1 positives preserved; unknown present flags fail closed. | Consistency with SDK boolean/numeric transition policy; NOT proof of backend response shape or server2FA bypass. Existing truthy confirmation data without explicit flag preserved. |
+| Challenge transitions | Malformed TOTP response replaced challengeUID before raising. Determine valid nextstate before committing UID/state; retry keeps previous UID after invalid response. | Fake malformed/valid transitions, no real codes or account. |
+| Refresh cancellation | Child suppressing CancelledError caused parentrefresh to return success/install tokens. Shield/cancel/drain now preserves caller cancellation, pending tracking and repeatedcancel cleanup. | Queued-cancel no-dispatch and independent sibling recovery pass. Drain waits actual child completion; remote outcome/old credential validity after sentrefresh cancel unknown. No automatic replay/expiry claim. |
+| History ref race | ProductionRPC ACK barrier reproduced subscribe returning alreadyclosed existingref while oldclose waited lock. Ignore closed registry entries; expectedref check still guards replacement. | Closed-reference race fixed; no new network path/interval invented. |
+| Explicit history recovery | New reconnect(oldrefs) returns replacementmap by path, validates ownrefs before retirement, deduplicates paths, gaps old/omitted/waiting refs and closes failed/cancelled partial batches. | Feature, not a claim that missing replay was a backend bug. KlineStreamGap exported; reconcile application-held history bounds manually. No server replay/sequence/atomicL2 guarantee. |
+| Cleanup error precedence | Failed hello/reconnect cleanup could mask originalerror/cancel. Shared best-effort failure cleanup preserves initiating error and prevents reuse after failedclose. | Fake hello/close failures history+market and private reconnect. Cleanup failure does not establish successful shutdown. |
+| Account terminal iteration | Reading closed/retired ref invoked reauth/connect before delivering stop/gap. Reauth only for currentactive rawref; owner/lifecycle checks retained before/afterread. | Closed/gap reads do not silently reconnect; explicit reconnect/resubscribe required. No live delivery guarantee. |
+| Requested private recovery probes | Accepted secondSUBcancel cleanup, retryfullreconnect with originalrefs, and refreshgeneration betweenSUBs all pass on production orchestration. Observed frames HELLO→SUB→REAUTH(newtoken)→SUB. | These are negative defect checks/confirmed existing behavior, not new production fixes or server publication ordering evidence. |
+| Default pytest network boundary | Autouse per-test fixture blocks external Python socket DNS/TCP/UDP before original calls, including teardown failure if a blocked error is swallowed. Real loopback/socketpair/localHTTPS remain supported. | Runtime fixture, not collection/subprocess/native-I/O firewall. Allowed local native resolver behavior outside this promise; standalone opt-in scripts separate. No new pytest skip/dependency. |
+
+Independent cross-reviews cover auth helper/challenges, history/account recovery
+and guard. Existing current-contract spot refresh remains distinct from unproven
+general-token renewal. Static frontend facts, historical live and current
+fake/local runtime remain separate evidence. No new successful public-live
+result is claimed, and previous public timeouts do not establish permanence.
+External account expiry/renewal/revocation/delivery, financial outcomes/finality,
+ID links, archive availability/retention, publication ordering/replay remain
+unverified. Full-suite and exact replacementSHA10-job CI follow separately.
+
+Final local auth/recovery suite: **1524 passed,1 native DPAPI skip**,
+1525 collected, Linux Python3.12.14; skip audit and source-doc checks passed.
+66 new meaningful cases include requested negative-reproduction probes and the
+network boundary; count does not establish all backend/SDK bugs resolved.
+Core-only source smoke under -I passed34exports (including KlineStreamGap),
+with pandas/plotly/asyncpg/aiosqlite absent and HTTP/cache prohibited; not an
+installed-wheel check. Independent cross-reviews passed. Exact replacementSHA
+and10-job GitHub CI are recorded in the same draftPR#1, separately from baseline.

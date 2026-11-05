@@ -18,7 +18,12 @@ class AccountSubscription:
 
     async def __anext__(self):
         self.stream._require_session(self.lifecycle)
-        await self.stream.reauthenticate()
+        # A terminal or replaced iterator must deliver its stop/gap without
+        # opening a connection. Recovery is explicit through fresh references.
+        if (not self.subscription.closed
+                and self.subscription._terminal_error is None
+                and self.stream._subscriptions.get(self.subscription.path) is self.subscription):
+            await self.stream.reauthenticate()
         item = await anext(self.subscription)
         self.stream._require_session(self.lifecycle)
         return item
@@ -116,7 +121,7 @@ class BitTeamAccountStreams(BitTeamMarketStreams):
                             path, subscription.subscription.channel, expected_lifecycle=lifecycle)
                 self._require_session(lifecycle)
             except BaseException:
-                await self.close()
+                await self._close_after_failure()
                 raise
             return replacements
 

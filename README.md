@@ -96,3 +96,11 @@ timezone-naive UTC; порядок и дубликаты входа не исп�
 `python -I -B scripts_sdk/check_window_prompt_runtime.py` (нужен настроенный
 `DISPLAY` и Tk). Скрипт автоматизирует только диалоги с фиктивным clipboard и
 запрещает создание HTTP-клиента; вход, отправка кодов и logout не выполняются.
+
+После разрыва history-потока можно явно вызвать
+`await client.history.reconnect(old_subscriptions)` и получить замены по path.
+Старые ссылки получают `KlineStreamGap`; пропущенное окно приложение сверяет
+отдельным history-чтением. Replay и непрерывность публикаций не обещаются.
+Подробные границы: [восстановление потоков](bitteam_sdk/RELIABILITY.md).
+Обычный pytest разрешает fake/loopback-сеть и блокирует внешние Python socket
+операции; runtime guard не является ограничителем collection/subprocess/native I/O.

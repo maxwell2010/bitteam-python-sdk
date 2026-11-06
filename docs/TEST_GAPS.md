@@ -1,9 +1,7 @@
-> Current release authorization (2026-11-05): the user explicitly lifted the
-> earlier version/build/install/tag/release freeze for reviewed GitHub release
-> preparation, and authorized PR #1 merge after checks. PyPI/Telegram sending,
-> real account/cache/secret/OTP/financial operations and security bypass remain
-> prohibited. Earlier freeze statements below are dated historical audit facts,
-> not the current authorization. External-contract limitations remain in force.
+> Историческая хронология и provenance проверок, не инструкция пользователя.
+> GitHub Release 1.7.0 опубликован. Прежние freeze/policy hold ниже описывают прошлые этапы.
+> Они не определяют текущие разрешения и не означают наличие аккаунтного кэша.
+> [Руководства](../README.md#руководства) - [архив](archive/README.md).
 
 # Test gaps: site, P2P, archive and CI
 

@@ -122,7 +122,7 @@ async def main():
             await client.get_balance()
             print("Balance read succeeded; values are not printed.")
         except BitTeamAPIError as error:
-            print("API error:", error.status, error.code)
+            print("API error:", type(error).__name__, "HTTP status:", error.status)
         finally:
             await client.logout()
 
@@ -165,7 +165,7 @@ async def main():
     except SessionCacheError:
         print("Cache unavailable, incompatible or damaged; inspect the profile locally.")
     except BitTeamAPIError as error:
-        print("API error:", error.status, error.code)
+        print("API error:", type(error).__name__, "HTTP status:", error.status)
 
 asyncio.run(main())
 ```
